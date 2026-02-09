@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import OrderDetailDialog from '@/components/OrderDetailDialog';
 
 const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
@@ -12,6 +13,7 @@ const AgendaView = () => {
   const [date] = React.useState(new Date());
   const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   const { data: orders = [], isLoading } = useServiceOrders();
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
 
   if (isLoading) {
     return (
@@ -54,6 +56,7 @@ const AgendaView = () => {
                     {ordersAtHour.map(os => (
                       <div
                         key={os.id}
+                        onClick={() => setSelectedOrder(os)}
                         className={cn(
                           "px-3 py-2 rounded-lg text-xs cursor-pointer transition-all hover:scale-[1.02]",
                           OS_STATUS_COLORS[os.status]
@@ -71,6 +74,8 @@ const AgendaView = () => {
           })}
         </div>
       </div>
+
+      <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
     </div>
   );
 };
