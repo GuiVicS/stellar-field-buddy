@@ -2,24 +2,76 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import LoginPage from "./pages/LoginPage";
+import ManagerLayout from "./layouts/ManagerLayout";
+import TechnicianLayout from "./layouts/TechnicianLayout";
+import ManagerDashboard from "./pages/manager/ManagerDashboard";
+import AgendaView from "./pages/manager/AgendaView";
+import KanbanView from "./pages/manager/KanbanView";
+import OrdersListPage from "./pages/manager/OrdersListPage";
+import TechniciansPage from "./pages/manager/TechniciansPage";
+import ReportsPage from "./pages/manager/ReportsPage";
+import TechnicianHome from "./pages/technician/TechnicianHome";
+import TechnicianAgenda from "./pages/technician/TechnicianAgenda";
+import TechnicianProfile from "./pages/technician/TechnicianProfile";
+import ServiceOrderWizard from "./pages/technician/ServiceOrderWizard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
+
+const RootRedirect = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'tecnico') return <Navigate to="/tech" replace />;
+  return <Navigate to="/manager" replace />;
+};
+
+const AppRoutes = () => (
+  <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
+
+    {/* Manager routes */}
+    <Route path="/manager" element={<ProtectedRoute><ManagerLayout /></ProtectedRoute>}>
+      <Route index element={<ManagerDashboard />} />
+      <Route path="agenda" element={<AgendaView />} />
+      <Route path="kanban" element={<KanbanView />} />
+      <Route path="orders" element={<OrdersListPage />} />
+      <Route path="technicians" element={<TechniciansPage />} />
+      <Route path="reports" element={<ReportsPage />} />
+    </Route>
+
+    {/* Technician routes */}
+    <Route path="/tech" element={<ProtectedRoute><TechnicianLayout /></ProtectedRoute>}>
+      <Route index element={<TechnicianHome />} />
+      <Route path="agenda" element={<TechnicianAgenda />} />
+      <Route path="orders" element={<TechnicianHome />} />
+      <Route path="os/:id" element={<ServiceOrderWizard />} />
+      <Route path="profile" element={<TechnicianProfile />} />
+    </Route>
+
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
