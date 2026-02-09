@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Plus, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import NewOrderDialog from '@/components/NewOrderDialog';
 
 const OrdersListPage = () => {
   const [search, setSearch] = React.useState('');
+  const [dialogOpen, setDialogOpen] = React.useState(false);
   const filtered = mockServiceOrders.filter(os =>
     os.code.toLowerCase().includes(search.toLowerCase()) ||
     os.customer?.name.toLowerCase().includes(search.toLowerCase())
@@ -19,7 +21,7 @@ const OrdersListPage = () => {
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
-        <Button className="brand-gradient text-primary-foreground">
+        <Button className="brand-gradient text-primary-foreground" onClick={() => setDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" /> Nova OS
         </Button>
       </div>
@@ -75,6 +77,8 @@ const OrdersListPage = () => {
           </table>
         </div>
       </div>
+
+      <NewOrderDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 };
