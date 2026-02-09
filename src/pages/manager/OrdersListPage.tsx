@@ -7,10 +7,12 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import NewOrderDialog from '@/components/NewOrderDialog';
+import OrderDetailDialog from '@/components/OrderDetailDialog';
 
 const OrdersListPage = () => {
   const [search, setSearch] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const { data: orders = [], isLoading } = useServiceOrders();
 
   const filtered = orders.filter(os =>
@@ -75,7 +77,7 @@ const OrdersListPage = () => {
                 </tr>
               )}
               {filtered.map(os => (
-                <tr key={os.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                <tr key={os.id} onClick={() => setSelectedOrder(os)} className="hover:bg-muted/30 transition-colors cursor-pointer">
                   <td className="px-4 py-3 font-mono font-semibold text-accent text-xs">{os.code}</td>
                   <td className="px-4 py-3">{os.customer?.name}</td>
                   <td className="px-4 py-3 text-xs">{OS_TYPE_LABELS[os.type]}</td>
@@ -97,6 +99,7 @@ const OrdersListPage = () => {
       </div>
 
       <NewOrderDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
     </div>
   );
 };

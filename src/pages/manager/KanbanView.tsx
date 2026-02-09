@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Clock, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import OrderDetailDialog from '@/components/OrderDetailDialog';
 
 const columns: { status: OSStatus; label: string; color: string }[] = [
   { status: 'a_fazer', label: 'A Fazer', color: 'border-t-status-pending' },
@@ -17,6 +18,7 @@ const columns: { status: OSStatus; label: string; color: string }[] = [
 
 const KanbanView = () => {
   const { data: allOrders = [], isLoading } = useServiceOrders();
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
 
   if (isLoading) {
     return (
@@ -52,7 +54,7 @@ const KanbanView = () => {
                   {orders.map(os => {
                     const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     return (
-                      <Card key={os.id} className="p-3 shadow-card border-border/50 hover:shadow-elevated transition-all cursor-pointer">
+                      <Card key={os.id} onClick={() => setSelectedOrder(os)} className="p-3 shadow-card border-border/50 hover:shadow-elevated transition-all cursor-pointer">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[11px] font-mono font-semibold text-accent">{os.code}</span>
                           <span className={cn("status-badge text-[10px]", PRIORITY_COLORS[os.priority])}>
@@ -93,6 +95,8 @@ const KanbanView = () => {
           );
         })}
       </div>
+
+      <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
     </div>
   );
 };

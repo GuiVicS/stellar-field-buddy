@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import OrderDetailDialog from '@/components/OrderDetailDialog';
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
   const { data: orders = [], isLoading } = useServiceOrders();
   const { data: profiles = [] } = useProfiles();
+  const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
 
   const technicians = profiles.filter(p =>
     orders.some(o => o.technician_id === p.user_id)
@@ -107,7 +109,7 @@ const ManagerDashboard = () => {
               const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
               const endTime = os.scheduled_end ? new Date(os.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
               return (
-                <Card key={os.id} className="p-4 shadow-card border-border/50 hover:shadow-elevated transition-shadow cursor-pointer">
+                <Card key={os.id} onClick={() => setSelectedOrder(os)} className="p-4 shadow-card border-border/50 hover:shadow-elevated transition-shadow cursor-pointer">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -179,6 +181,8 @@ const ManagerDashboard = () => {
           </div>
         </div>
       </div>
+
+      <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
     </div>
   );
 };
