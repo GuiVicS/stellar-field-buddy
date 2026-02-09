@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockServiceOrders, mockChecklist, mockTimeline } from '@/data/mockData';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS, OS_TYPE_LABELS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
+import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
+import { useChecklist, useToggleChecklistItem } from '@/hooks/useChecklist';
+import { useTimeline } from '@/hooks/useTimeline';
+import { OS_STATUS_LABELS, OS_STATUS_COLORS } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,9 +12,10 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, MapPin, Phone, Clock, Printer, User, Camera, Mic, Plus,
   CheckCircle2, FileText, Package, PenTool, ChevronRight, ChevronLeft,
-  Play, Square,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 const steps = [
   { id: 1, label: 'Resumo', icon: FileText },
@@ -26,20 +29,52 @@ const steps = [
 const ServiceOrderWizard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const os = mockServiceOrders.find(o => o.id === id);
+  const { toast } = useToast();
+  const { data: allOrders = [], isLoading } = useServiceOrders();
+  const os = allOrders.find(o => o.id === id);
+  const { data: checklist = [] } = useChecklist(id);
+  const { data: timeline = [] } = useTimeline(id);
+  const toggleItem = useToggleChecklistItem();
+  const updateOrder = useUpdateServiceOrder();
+
   const [currentStep, setCurrentStep] = useState(1);
-  const [diagnosis, setDiagnosis] = useState(os?.diagnosis || '');
-  const [resolution, setResolution] = useState(os?.resolution || '');
-  const [checklist, setChecklist] = useState(mockChecklist);
+  const [diagnosis, setDiagnosis] = useState('');
+  const [resolution, setResolution] = useState('');
+
+  // Set initial values when OS loads
+  React.useEffect(() => {
+    if (os) {
+      setDiagnosis(os.diagnosis || '');
+      setResolution(os.resolution || '');
+    }
+  }, [os]);
+
+  if (isLoading) {
+    return <div className="p-5 space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
+  }
 
   if (!os) return <div className="p-5">OS não encontrada</div>;
 
   const canGoNext = currentStep < steps.length;
   const canGoPrev = currentStep > 1;
 
+  const handleFinish = () => {
+    updateOrder.mutate({
+      id: os.id,
+      status: 'concluido' as any,
+      diagnosis,
+      resolution,
+      finished_at: new Date().toISOString(),
+    }, {
+      onSuccess: () => {
+        toast({ title: '✅ OS finalizada com sucesso!' });
+        navigate(-1);
+      },
+    });
+  };
+
   return (
     <div className="animate-fade-in">
-      {/* Header */}
       <div className="brand-gradient px-5 pt-4 pb-5 text-primary-foreground">
         <div className="flex items-center gap-3 mb-3">
           <button onClick={() => navigate(-1)} className="p-1">
@@ -51,14 +86,13 @@ const ServiceOrderWizard = () => {
           </div>
         </div>
         <div className="flex items-center gap-3 text-xs opacity-80">
-          <span className={cn("status-badge bg-primary-foreground/20 text-primary-foreground")}>
+          <span className="status-badge bg-primary-foreground/20 text-primary-foreground">
             {OS_STATUS_LABELS[os.status]}
           </span>
-          <span className="flex items-center gap-1"><Printer className="w-3 h-3" />{os.machine?.model}</span>
+          {os.machine && <span className="flex items-center gap-1"><Printer className="w-3 h-3" />{os.machine.model}</span>}
         </div>
       </div>
 
-      {/* Step indicator */}
       <div className="px-5 py-3 flex gap-1 overflow-x-auto scrollbar-hide">
         {steps.map(step => (
           <button
@@ -77,7 +111,6 @@ const ServiceOrderWizard = () => {
         ))}
       </div>
 
-      {/* Step content */}
       <div className="px-5 pb-32">
         {currentStep === 1 && (
           <div className="space-y-4 animate-fade-in">
@@ -86,22 +119,26 @@ const ServiceOrderWizard = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <User className="w-4 h-4" />
-                  <span>{os.customer?.main_contact_name}</span>
+                  <span>{os.customer?.main_contact_name || os.customer?.name}</span>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <a href={`tel:${os.customer?.phone}`} className="text-accent">{os.customer?.phone}</a>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{os.address?.street}, {os.address?.number} — {os.address?.city}/{os.address?.state}</span>
-                </div>
+                {os.customer?.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="w-4 h-4" />
+                    <a href={`tel:${os.customer.phone}`} className="text-accent">{os.customer.phone}</a>
+                  </div>
+                )}
+                {os.address && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="w-4 h-4" />
+                    <span>{os.address.street}, {os.address.number} — {os.address.city}/{os.address.state}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="w-4 h-4" />
                   <span>
-                    {new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} –{' '}
-                    {new Date(os.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    {' '}({os.estimated_duration_min}min)
+                    {new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {os.scheduled_end && ` – ${new Date(os.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                    {os.estimated_duration_min && ` (${os.estimated_duration_min}min)`}
                   </span>
                 </div>
               </div>
@@ -110,25 +147,26 @@ const ServiceOrderWizard = () => {
               <h3 className="text-sm font-semibold mb-2">Descrição do Problema</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{os.problem_description}</p>
             </Card>
-            {/* Timeline */}
-            <Card className="p-4 shadow-card border-border/50">
-              <h3 className="text-sm font-semibold mb-3">Histórico</h3>
-              <div className="space-y-3">
-                {mockTimeline.filter(t => t.os_id === os.id).map(item => (
-                  <div key={item.id} className="flex gap-3 text-xs">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 flex-shrink-0" />
-                    <div>
-                      <p className={cn(item.kind === 'system' ? 'text-muted-foreground' : 'text-foreground')}>
-                        {item.message}
-                      </p>
-                      <span className="text-muted-foreground/60">
-                        {new Date(item.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+            {timeline.length > 0 && (
+              <Card className="p-4 shadow-card border-border/50">
+                <h3 className="text-sm font-semibold mb-3">Histórico</h3>
+                <div className="space-y-3">
+                  {timeline.map(item => (
+                    <div key={item.id} className="flex gap-3 text-xs">
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 flex-shrink-0" />
+                      <div>
+                        <p className={cn(item.kind === 'system' ? 'text-muted-foreground' : 'text-foreground')}>
+                          {item.message}
+                        </p>
+                        <span className="text-muted-foreground/60">
+                          {new Date(item.created_at!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+                  ))}
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
@@ -163,15 +201,18 @@ const ServiceOrderWizard = () => {
                 <Plus className="w-3 h-3 mr-1" /> Item
               </Button>
             </div>
+            {checklist.length === 0 && (
+              <Card className="p-6 text-center text-muted-foreground text-sm">
+                Nenhum item no checklist
+              </Card>
+            )}
             {checklist.map(item => (
               <Card key={item.id} className="p-3 shadow-card border-border/50">
                 <div className="flex items-start gap-3">
                   <Checkbox
-                    checked={item.checked}
+                    checked={item.checked || false}
                     onCheckedChange={() => {
-                      setChecklist(prev => prev.map(i =>
-                        i.id === item.id ? { ...i, checked: !i.checked } : i
-                      ));
+                      toggleItem.mutate({ id: item.id, checked: !item.checked });
                     }}
                     className="mt-0.5"
                   />
@@ -236,7 +277,6 @@ const ServiceOrderWizard = () => {
               <div className="space-y-3">
                 <Input placeholder="Nome do responsável" className="h-10 text-sm" />
                 <Input placeholder="CPF / Documento (opcional)" className="h-10 text-sm" />
-                {/* Signature pad placeholder */}
                 <div className="border-2 border-dashed border-border rounded-xl h-40 flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <PenTool className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -245,29 +285,23 @@ const ServiceOrderWizard = () => {
                 </div>
               </div>
             </Card>
-            <Button className="w-full h-12 brand-gradient text-primary-foreground font-semibold text-base">
+            <Button
+              onClick={handleFinish}
+              disabled={updateOrder.isPending}
+              className="w-full h-12 brand-gradient text-primary-foreground font-semibold text-base"
+            >
               <CheckCircle2 className="w-5 h-5 mr-2" />
-              Finalizar OS
+              {updateOrder.isPending ? 'Finalizando...' : 'Finalizar OS'}
             </Button>
           </div>
         )}
       </div>
 
-      {/* Bottom navigation */}
       <div className="fixed bottom-16 inset-x-0 px-5 py-3 bg-background/80 backdrop-blur-md border-t border-border flex gap-3 z-40">
-        <Button
-          variant="outline"
-          disabled={!canGoPrev}
-          onClick={() => setCurrentStep(s => s - 1)}
-          className="flex-1 h-11"
-        >
+        <Button variant="outline" disabled={!canGoPrev} onClick={() => setCurrentStep(s => s - 1)} className="flex-1 h-11">
           <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
         </Button>
-        <Button
-          disabled={!canGoNext}
-          onClick={() => setCurrentStep(s => s + 1)}
-          className="flex-1 h-11 brand-gradient text-primary-foreground"
-        >
+        <Button disabled={!canGoNext} onClick={() => setCurrentStep(s => s + 1)} className="flex-1 h-11 brand-gradient text-primary-foreground">
           Próximo <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
       </div>
