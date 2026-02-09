@@ -9,14 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { HelpCircle, User, Wrench, AlertTriangle, Calendar, MessageSquare } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useCreateServiceOrder } from '@/hooks/useServiceOrders';
 import { useAuth } from '@/contexts/AuthContext';
 import { OS_TYPE_LABELS } from '@/types';
-import type { OSType, Priority } from '@/types';
+import type { OSType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -27,17 +26,6 @@ interface NewOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const HelpTip = ({ text }: { text: string }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help inline ml-1" />
-    </TooltipTrigger>
-    <TooltipContent side="top" className="max-w-[220px] text-xs">
-      {text}
-    </TooltipContent>
-  </Tooltip>
-);
 
 const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
   const { toast } = useToast();
@@ -103,6 +91,13 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
     });
   };
 
+  const priorities = [
+    { value: 'baixa' as const, label: '🟢 Baixa' },
+    { value: 'media' as const, label: '🟡 Média' },
+    { value: 'alta' as const, label: '🟠 Alta' },
+    { value: 'urgente' as const, label: '🔴 Urgente' },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -119,14 +114,11 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
         <div className="space-y-4 py-2">
           {/* Cliente */}
           <div className="space-y-1.5">
-            <Label className="flex items-center text-sm font-medium">
-              <User className="w-3.5 h-3.5 mr-1.5 text-primary" />
-              Cliente
-              <HelpTip text="Selecione o cliente que solicitou o serviço." />
-              <span className="text-destructive ml-0.5">*</span>
+            <Label className="text-sm font-medium">
+              Cliente <span className="text-destructive">*</span>
             </Label>
             <Select value={form.customer_id} onValueChange={v => update('customer_id', v)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue placeholder="Escolha o cliente" />
               </SelectTrigger>
               <SelectContent className="bg-popover z-[100]">
@@ -140,93 +132,67 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
             </Select>
           </div>
 
-          {/* Tipo de Serviço */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center text-sm font-medium">
-              <Wrench className="w-3.5 h-3.5 mr-1.5 text-primary" />
-              Tipo de Serviço
-              <HelpTip text="Instalação: equipamento novo. Corretiva: consertar defeito. Preventiva: manutenção programada. Treinamento: capacitação." />
-              <span className="text-destructive ml-0.5">*</span>
-            </Label>
-            <Select value={form.type} onValueChange={v => update('type', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Qual o tipo?" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-[100]">
-                {(Object.entries(OS_TYPE_LABELS) as [OSType, string][]).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Tipo + Prioridade lado a lado */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">
+                Tipo <span className="text-destructive">*</span>
+              </Label>
+              <Select value={form.type} onValueChange={v => update('type', v)}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  {(Object.entries(OS_TYPE_LABELS) as [OSType, string][]).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Prioridade */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center text-sm font-medium">
-              <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-primary" />
-              Prioridade
-              <HelpTip text="Urgente: produção parada. Alta: problema grave. Média: situação normal. Baixa: sem pressa." />
-            </Label>
-            <div className="grid grid-cols-4 gap-2">
-              {([
-                { value: 'baixa', label: 'Baixa', color: 'border-green-400 bg-green-50 text-green-700' },
-                { value: 'media', label: 'Média', color: 'border-yellow-400 bg-yellow-50 text-yellow-700' },
-                { value: 'alta', label: 'Alta', color: 'border-orange-400 bg-orange-50 text-orange-700' },
-                { value: 'urgente', label: 'Urgente', color: 'border-red-400 bg-red-50 text-red-700' },
-              ] as const).map(p => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => update('priority', p.value)}
-                  className={`rounded-lg border-2 py-1.5 text-xs font-semibold transition-all ${
-                    form.priority === p.value
-                      ? `${p.color} ring-2 ring-offset-1 ring-primary/30 scale-105`
-                      : 'border-border bg-background text-muted-foreground hover:border-muted-foreground/30'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Prioridade</Label>
+              <Select value={form.priority} onValueChange={v => update('priority', v)}>
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  {priorities.map(p => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           {/* Data e Hora */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="flex items-center text-sm font-medium">
-                <Calendar className="w-3.5 h-3.5 mr-1.5 text-primary" />
-                Data
-                <HelpTip text="Quando o serviço deve ser realizado." />
-              </Label>
+              <Label className="text-sm font-medium">Data</Label>
               <Input
                 type="date"
                 value={form.scheduled_date}
                 onChange={e => update('scheduled_date', e.target.value)}
+                className="h-11"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="flex items-center text-sm font-medium">
-                Horário
-                <HelpTip text="Hora prevista para início do atendimento." />
-              </Label>
+              <Label className="text-sm font-medium">Horário</Label>
               <Input
                 type="time"
                 value={form.scheduled_time}
                 onChange={e => update('scheduled_time', e.target.value)}
+                className="h-11"
               />
             </div>
           </div>
 
-          {/* Técnico (opcional) */}
+          {/* Técnico */}
           <div className="space-y-1.5">
-            <Label className="flex items-center text-sm font-medium">
-              <User className="w-3.5 h-3.5 mr-1.5 text-primary" />
-              Técnico
-              <HelpTip text="Opcional. Você pode atribuir um técnico depois." />
-            </Label>
+            <Label className="text-sm font-medium">Técnico (opcional)</Label>
             <Select value={form.technician_id} onValueChange={v => update('technician_id', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Atribuir depois (opcional)" />
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Atribuir depois" />
               </SelectTrigger>
               <SelectContent className="bg-popover z-[100]">
                 {technicians.map(t => (
@@ -236,20 +202,17 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
             </Select>
           </div>
 
-          {/* Descrição do Problema */}
+          {/* Descrição */}
           <div className="space-y-1.5">
-            <Label className="flex items-center text-sm font-medium">
-              <MessageSquare className="w-3.5 h-3.5 mr-1.5 text-primary" />
-              Descrição do Problema
-              <HelpTip text="Descreva o que está acontecendo para o técnico entender." />
-              <span className="text-destructive ml-0.5">*</span>
+            <Label className="text-sm font-medium">
+              O que está acontecendo? <span className="text-destructive">*</span>
             </Label>
             <Textarea
               placeholder="Ex: Impressora travando papel na bandeja 2..."
               value={form.problem_description}
               onChange={e => update('problem_description', e.target.value)}
               rows={3}
-              className="resize-none"
+              className="resize-none text-sm"
             />
           </div>
         </div>
