@@ -1,19 +1,43 @@
 import React from 'react';
-import { mockUsers, mockServiceOrders } from '@/data/mockData';
+import { useProfiles } from '@/hooks/useProfiles';
+import { useServiceOrders } from '@/hooks/useServiceOrders';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-
-const technicians = mockUsers.filter(u => u.role === 'tecnico');
+import { Skeleton } from '@/components/ui/skeleton';
 
 const TechniciansPage = () => {
+  const { data: profiles = [], isLoading: loadingProfiles } = useProfiles();
+  const { data: orders = [], isLoading: loadingOrders } = useServiceOrders();
+
+  const isLoading = loadingProfiles || loadingOrders;
+
+  // All profiles that have been assigned to at least one order, or just show all profiles
+  const technicians = profiles.filter(p => p.active);
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-40" />)}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
       <h1 className="text-2xl font-bold">Técnicos</h1>
+      {technicians.length === 0 && (
+        <Card className="p-8 text-center text-muted-foreground">
+          <p>Nenhum técnico cadastrado</p>
+        </Card>
+      )}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {technicians.map(tech => {
-          const orders = mockServiceOrders.filter(o => o.technician_id === tech.id);
-          const done = orders.filter(o => o.status === 'concluido').length;
-          const active = orders.some(o => ['em_deslocamento', 'em_atendimento'].includes(o.status));
+          const techOrders = orders.filter(o => o.technician_id === tech.user_id);
+          const done = techOrders.filter(o => o.status === 'concluido').length;
+          const active = techOrders.some(o => ['em_deslocamento', 'em_atendimento'].includes(o.status));
           return (
             <Card key={tech.id} className="p-5 shadow-card border-border/50">
               <div className="flex items-center gap-3 mb-4">
@@ -30,7 +54,7 @@ const TechniciansPage = () => {
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-muted rounded-lg p-2">
-                  <div className="text-lg font-bold">{orders.length}</div>
+                  <div className="text-lg font-bold">{techOrders.length}</div>
                   <div className="text-[10px] text-muted-foreground">Total</div>
                 </div>
                 <div className="bg-muted rounded-lg p-2">
@@ -38,7 +62,7 @@ const TechniciansPage = () => {
                   <div className="text-[10px] text-muted-foreground">Feitas</div>
                 </div>
                 <div className="bg-muted rounded-lg p-2">
-                  <div className="text-lg font-bold">{orders.length - done}</div>
+                  <div className="text-lg font-bold">{techOrders.length - done}</div>
                   <div className="text-[10px] text-muted-foreground">Pendentes</div>
                 </div>
               </div>

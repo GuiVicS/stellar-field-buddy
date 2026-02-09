@@ -1,21 +1,32 @@
 import React from 'react';
-import { mockServiceOrders } from '@/data/mockData';
+import { useServiceOrders } from '@/hooks/useServiceOrders';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
-import type { ServiceOrder } from '@/types';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import NewOrderDialog from '@/components/NewOrderDialog';
 
 const OrdersListPage = () => {
   const [search, setSearch] = React.useState('');
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const filtered = mockServiceOrders.filter(os =>
+  const { data: orders = [], isLoading } = useServiceOrders();
+
+  const filtered = orders.filter(os =>
     os.code.toLowerCase().includes(search.toLowerCase()) ||
-    os.customer?.name.toLowerCase().includes(search.toLowerCase())
+    os.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
@@ -56,6 +67,13 @@ const OrdersListPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    Nenhuma OS encontrada
+                  </td>
+                </tr>
+              )}
               {filtered.map(os => (
                 <tr key={os.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
                   <td className="px-4 py-3 font-mono font-semibold text-accent text-xs">{os.code}</td>

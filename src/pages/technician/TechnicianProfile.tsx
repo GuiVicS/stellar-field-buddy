@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Mail, Phone, MapPin, Wrench } from 'lucide-react';
+import { LogOut, Mail, Phone, MapPin, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const TechnicianProfile = () => {
@@ -21,7 +21,7 @@ const TechnicianProfile = () => {
           {user?.name?.charAt(0)}
         </div>
         <h1 className="text-xl font-bold">{user?.name}</h1>
-        <p className="text-sm opacity-70">Técnico de Campo</p>
+        <p className="text-sm opacity-70 capitalize">{user?.role}</p>
       </div>
 
       <div className="px-5 -mt-5 space-y-3">
@@ -30,18 +30,12 @@ const TechnicianProfile = () => {
             <Mail className="w-4 h-4 text-accent" />
             <span>{user?.email}</span>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Phone className="w-4 h-4 text-accent" />
-            <span>{user?.phone}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <MapPin className="w-4 h-4 text-accent" />
-            <span>São Paulo, SP</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Wrench className="w-4 h-4 text-accent" />
-            <span>HP Indigo, Xerox, Konica Minolta</span>
-          </div>
+          {user?.phone && (
+            <div className="flex items-center gap-3 text-sm">
+              <Phone className="w-4 h-4 text-accent" />
+              <span>{user.phone}</span>
+            </div>
+          )}
         </Card>
 
         <Button variant="outline" onClick={handleLogout} className="w-full h-11 text-destructive border-destructive/30">

@@ -93,7 +93,7 @@ const ManagerLayout = () => {
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium text-sidebar-foreground truncate">{user?.name}</div>
-                <div className="text-[10px] text-sidebar-foreground/50">Gerente</div>
+                <div className="text-[10px] text-sidebar-foreground/50 capitalize">{user?.role}</div>
               </div>
             )}
             {!collapsed && (

@@ -1,16 +1,28 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getTechnicianOrders } from '@/data/mockData';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS, OS_TYPE_LABELS } from '@/types';
+import { useServiceOrders } from '@/hooks/useServiceOrders';
+import { OS_STATUS_LABELS, OS_STATUS_COLORS } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const TechnicianAgenda = () => {
   const { user } = useAuth();
-  const orders = getTechnicianOrders(user?.id || '');
+  const { data: allOrders = [], isLoading } = useServiceOrders();
+  const orders = allOrders.filter(o => o.technician_id === user?.user_id);
   const today = new Date();
+
+  if (isLoading) {
+    return (
+      <div className="p-5 space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -38,7 +50,7 @@ const TechnicianAgenda = () => {
         ) : (
           orders.map(os => {
             const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            const endTime = new Date(os.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const endTime = os.scheduled_end ? new Date(os.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
             return (
               <Card key={os.id} className="p-4 shadow-card border-border/50">
                 <div className="flex items-center gap-2 mb-2">
@@ -49,7 +61,7 @@ const TechnicianAgenda = () => {
                 </div>
                 <div className="text-sm font-semibold">{os.customer?.name}</div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{time} – {endTime}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{time}{endTime && ` – ${endTime}`}</span>
                   <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{os.address?.city}</span>
                 </div>
               </Card>

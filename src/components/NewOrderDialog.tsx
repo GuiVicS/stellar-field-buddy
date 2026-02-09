@@ -11,10 +11,17 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { HelpCircle, User, Wrench, AlertTriangle, Calendar, MessageSquare } from 'lucide-react';
-import { mockCustomers, mockUsers, mockServiceOrders } from '@/data/mockData';
+import { useCustomers } from '@/hooks/useCustomers';
+import { useProfiles } from '@/hooks/useProfiles';
+import { useCreateServiceOrder } from '@/hooks/useServiceOrders';
+import { useAuth } from '@/contexts/AuthContext';
 import { OS_TYPE_LABELS } from '@/types';
 import type { OSType, Priority } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type DBPriority = Database['public']['Enums']['priority'];
+type DBOSType = Database['public']['Enums']['os_type'];
 
 interface NewOrderDialogProps {
   open: boolean;
@@ -34,13 +41,18 @@ const HelpTip = ({ text }: { text: string }) => (
 
 const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
   const { toast } = useToast();
-  const technicians = mockUsers.filter(u => u.role === 'tecnico' && u.active);
+  const { user } = useAuth();
+  const { data: customers = [] } = useCustomers();
+  const { data: profiles = [] } = useProfiles();
+  const createOrder = useCreateServiceOrder();
+
+  const technicians = profiles.filter(p => p.active);
 
   const [form, setForm] = useState({
     customer_id: '',
     technician_id: '',
-    type: '' as OSType | '',
-    priority: 'media' as Priority,
+    type: '' as DBOSType | '',
+    priority: 'media' as DBPriority,
     scheduled_date: new Date().toISOString().split('T')[0],
     scheduled_time: '08:00',
     problem_description: '',
@@ -50,28 +62,45 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
     setForm(prev => ({ ...prev, [field]: value }));
 
   const canSubmit =
-    form.customer_id && form.type && form.problem_description.trim().length > 0;
+    form.customer_id && form.type && form.problem_description.trim().length > 0 && !createOrder.isPending;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
 
-    const nextCode = `OS-2026-${String(mockServiceOrders.length + 1).padStart(4, '0')}`;
+    const scheduledStart = new Date(`${form.scheduled_date}T${form.scheduled_time}:00`);
+    const scheduledEnd = new Date(scheduledStart.getTime() + 60 * 60 * 1000);
 
-    toast({
-      title: '✅ OS criada com sucesso!',
-      description: `Código: ${nextCode}`,
+    createOrder.mutate({
+      customer_id: form.customer_id,
+      type: form.type as DBOSType,
+      priority: form.priority,
+      scheduled_start: scheduledStart.toISOString(),
+      scheduled_end: scheduledEnd.toISOString(),
+      estimated_duration_min: 60,
+      problem_description: form.problem_description,
+      technician_id: form.technician_id || null,
+      created_by: user?.user_id || null,
+    }, {
+      onSuccess: (data) => {
+        toast({
+          title: '✅ OS criada com sucesso!',
+          description: `Código: ${data.code}`,
+        });
+        setForm({
+          customer_id: '',
+          technician_id: '',
+          type: '',
+          priority: 'media',
+          scheduled_date: new Date().toISOString().split('T')[0],
+          scheduled_time: '08:00',
+          problem_description: '',
+        });
+        onOpenChange(false);
+      },
+      onError: (err) => {
+        toast({ title: '❌ Erro ao criar OS', description: String(err), variant: 'destructive' });
+      },
     });
-
-    setForm({
-      customer_id: '',
-      technician_id: '',
-      type: '',
-      priority: 'media',
-      scheduled_date: new Date().toISOString().split('T')[0],
-      scheduled_time: '08:00',
-      problem_description: '',
-    });
-    onOpenChange(false);
   };
 
   return (
@@ -100,10 +129,13 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Escolha o cliente" />
               </SelectTrigger>
-              <SelectContent>
-                {mockCustomers.map(c => (
+              <SelectContent className="bg-popover z-[100]">
+                {customers.map(c => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
+                {customers.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente cadastrado</div>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -120,7 +152,7 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Qual o tipo?" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover z-[100]">
                 {(Object.entries(OS_TYPE_LABELS) as [OSType, string][]).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}
@@ -196,9 +228,9 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
               <SelectTrigger>
                 <SelectValue placeholder="Atribuir depois (opcional)" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover z-[100]">
                 {technicians.map(t => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  <SelectItem key={t.id} value={t.user_id}>{t.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -231,7 +263,7 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
             disabled={!canSubmit}
             className="brand-gradient text-primary-foreground"
           >
-            Criar OS
+            {createOrder.isPending ? 'Criando...' : 'Criar OS'}
           </Button>
         </DialogFooter>
       </DialogContent>

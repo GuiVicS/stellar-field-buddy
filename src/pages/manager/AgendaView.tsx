@@ -1,16 +1,26 @@
 import React from 'react';
-import { mockServiceOrders } from '@/data/mockData';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
-import { Card } from '@/components/ui/card';
+import { useServiceOrders } from '@/hooks/useServiceOrders';
+import { OS_STATUS_COLORS } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7:00 - 18:00
+const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
 const AgendaView = () => {
   const [date] = React.useState(new Date());
   const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const { data: orders = [], isLoading } = useServiceOrders();
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
@@ -29,7 +39,7 @@ const AgendaView = () => {
       <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
         <div className="grid grid-cols-[60px_1fr] divide-x divide-border">
           {hours.map(hour => {
-            const ordersAtHour = mockServiceOrders.filter(os => {
+            const ordersAtHour = orders.filter(os => {
               const h = new Date(os.scheduled_start).getHours();
               return h === hour;
             });
