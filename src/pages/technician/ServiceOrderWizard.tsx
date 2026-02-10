@@ -175,7 +175,7 @@ const ServiceOrderWizard = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="brand-gradient px-5 pt-4 pb-5 text-primary-foreground">
+      <div className="bg-muted px-5 pt-4 pb-5 text-foreground">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="p-1">
