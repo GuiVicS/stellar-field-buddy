@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import SignaturePad from '@/components/SignaturePad';
 
 const steps = [
   { id: 1, label: 'Resumo', icon: FileText },
@@ -51,6 +52,10 @@ const ServiceOrderWizard = () => {
   const [uploading, setUploading] = useState(false);
   const [partName, setPartName] = useState('');
   const [partCost, setPartCost] = useState('');
+  const [sigName, setSigName] = useState('');
+  const [sigDoc, setSigDoc] = useState('');
+  const [sigImage, setSigImage] = useState<string | null>(null);
+  const [savingSignature, setSavingSignature] = useState(false);
 
   const { data: evidences = [] } = useQuery({
     queryKey: ['evidences', id],
@@ -78,6 +83,9 @@ const ServiceOrderWizard = () => {
     if (os) {
       setDiagnosis(os.diagnosis || '');
       setResolution(os.resolution || '');
+      setSigName(os.customer_signature_name || '');
+      setSigDoc(os.customer_signature_doc || '');
+      setSigImage(os.customer_signature_image || null);
     }
   }, [os]);
 
@@ -496,23 +504,50 @@ const ServiceOrderWizard = () => {
             <Card className="p-4 shadow-card border-border/50">
               <h3 className="text-sm font-semibold mb-3">Assinatura do Cliente</h3>
               <div className="space-y-3">
-                <Input placeholder="Nome do responsável" className="h-10 text-sm" />
-                <Input placeholder="CPF / Documento (opcional)" className="h-10 text-sm" />
-                <div className="border-2 border-dashed border-border rounded-xl h-40 flex items-center justify-center text-muted-foreground">
-                  <div className="text-center">
-                    <PenTool className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">Toque para assinar</p>
-                  </div>
-                </div>
+                <Input
+                  placeholder="Nome do responsável"
+                  className="h-10 text-sm"
+                  value={sigName}
+                  onChange={e => setSigName(e.target.value)}
+                  disabled={isFinished}
+                />
+                <Input
+                  placeholder="CPF / Documento (opcional)"
+                  className="h-10 text-sm"
+                  value={sigDoc}
+                  onChange={e => setSigDoc(e.target.value)}
+                  disabled={isFinished}
+                />
+                <SignaturePad
+                  onSignatureChange={setSigImage}
+                  initialValue={sigImage}
+                  disabled={isFinished}
+                />
               </div>
             </Card>
             <Button
-              onClick={handleAdvanceStatus}
-              disabled={updateOrder.isPending || isFinished}
+              onClick={async () => {
+                setSavingSignature(true);
+                try {
+                  // Save signature data first
+                  await supabase.from('service_orders').update({
+                    customer_signature_name: sigName,
+                    customer_signature_doc: sigDoc,
+                    customer_signature_image: sigImage || '',
+                  }).eq('id', os.id);
+                  // Then advance status if needed
+                  handleAdvanceStatus();
+                } catch (err: any) {
+                  toast({ title: 'Erro ao salvar assinatura', description: err.message, variant: 'destructive' });
+                } finally {
+                  setSavingSignature(false);
+                }
+              }}
+              disabled={updateOrder.isPending || savingSignature || isFinished || (!sigName.trim() && !sigImage)}
               className="w-full h-12 brand-gradient text-primary-foreground font-semibold text-base"
             >
               <CheckCircle2 className="w-5 h-5 mr-2" />
-              {updateOrder.isPending ? 'Finalizando...' : isFinished ? 'OS Finalizada' : 'Finalizar OS'}
+              {savingSignature || updateOrder.isPending ? 'Finalizando...' : isFinished ? 'OS Finalizada' : 'Finalizar OS'}
             </Button>
           </div>
         )}
