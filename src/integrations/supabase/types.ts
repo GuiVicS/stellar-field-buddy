@@ -219,6 +219,7 @@ export type Database = {
       }
       parts_used: {
         Row: {
+          cost: number | null
           created_at: string | null
           id: string
           note: string | null
@@ -227,6 +228,7 @@ export type Database = {
           quantity: number | null
         }
         Insert: {
+          cost?: number | null
           created_at?: string | null
           id?: string
           note?: string | null
@@ -235,6 +237,7 @@ export type Database = {
           quantity?: number | null
         }
         Update: {
+          cost?: number | null
           created_at?: string | null
           id?: string
           note?: string | null
