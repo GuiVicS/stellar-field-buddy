@@ -22,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { useProfiles } from '@/hooks/useProfiles';
+import { useCustomers, useCustomerAddresses, useMachines } from '@/hooks/useCustomers';
 import { useToast } from '@/hooks/use-toast';
 
 interface OrderDetailDialogProps {
@@ -93,6 +94,7 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
   const fileInputRef = useRef<HTMLInputElement>(null);
   const updateOrder = useUpdateServiceOrder();
   const { data: profiles = [] } = useProfiles();
+  const { data: customers = [] } = useCustomers();
   const technicians = profiles.filter(p => p.active);
 
   const [uploading, setUploading] = useState(false);
@@ -104,11 +106,21 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
     priority: '' as Priority,
     type: '' as OSType,
     technician_id: '' as string,
+    customer_id: '' as string,
+    address_id: '' as string,
+    machine_id: '' as string,
+    scheduled_start: '',
+    scheduled_end: '',
+    estimated_duration_min: 60,
     problem_description: '',
     diagnosis: '',
     resolution: '',
     next_steps: '',
   });
+
+  // Fetch addresses and machines based on selected customer
+  const { data: customerAddresses = [] } = useCustomerAddresses(form.customer_id || undefined);
+  const { data: customerMachines = [] } = useMachines(form.customer_id || undefined);
 
   // Sync form when order changes
   useEffect(() => {
@@ -118,6 +130,12 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
         priority: order.priority,
         type: order.type,
         technician_id: order.technician_id || '',
+        customer_id: order.customer_id || '',
+        address_id: order.address_id || '',
+        machine_id: order.machine_id || '',
+        scheduled_start: order.scheduled_start ? order.scheduled_start.slice(0, 16) : '',
+        scheduled_end: order.scheduled_end ? order.scheduled_end.slice(0, 16) : '',
+        estimated_duration_min: order.estimated_duration_min || 60,
         problem_description: order.problem_description || '',
         diagnosis: order.diagnosis || '',
         resolution: order.resolution || '',
@@ -149,6 +167,12 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
       priority: form.priority,
       type: form.type,
       technician_id: form.technician_id || null,
+      customer_id: form.customer_id,
+      address_id: form.address_id || null,
+      machine_id: form.machine_id || null,
+      scheduled_start: form.scheduled_start ? new Date(form.scheduled_start).toISOString() : order.scheduled_start,
+      scheduled_end: form.scheduled_end ? new Date(form.scheduled_end).toISOString() : null,
+      estimated_duration_min: form.estimated_duration_min,
       problem_description: form.problem_description,
       diagnosis: form.diagnosis,
       resolution: form.resolution,
@@ -237,6 +261,12 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
     form.priority !== order.priority ||
     form.type !== order.type ||
     (form.technician_id || '') !== (order.technician_id || '') ||
+    (form.customer_id || '') !== (order.customer_id || '') ||
+    (form.address_id || '') !== (order.address_id || '') ||
+    (form.machine_id || '') !== (order.machine_id || '') ||
+    form.scheduled_start !== (order.scheduled_start ? order.scheduled_start.slice(0, 16) : '') ||
+    form.scheduled_end !== (order.scheduled_end ? order.scheduled_end.slice(0, 16) : '') ||
+    form.estimated_duration_min !== (order.estimated_duration_min || 60) ||
     form.problem_description !== (order.problem_description || '') ||
     form.diagnosis !== (order.diagnosis || '') ||
     form.resolution !== (order.resolution || '') ||
@@ -330,35 +360,82 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
               </Select>
             </PropRow>
 
-            <PropRow label="Data">
-              <span className="text-sm">{dateStr}</span>
+            <PropRow label="Cliente">
+              <Select value={form.customer_id} onValueChange={(v) => setForm(p => ({ ...p, customer_id: v, address_id: '', machine_id: '' }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <SelectValue placeholder="Selecionar cliente" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100] max-h-60">
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </PropRow>
 
-            <PropRow label="Período">
-              <span className="text-sm">{endTime ? `${time} – ${endTime}` : time}</span>
+            <PropRow label="Endereço">
+              <Select value={form.address_id} onValueChange={(v) => setForm(p => ({ ...p, address_id: v }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <SelectValue placeholder="Nenhum endereço" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {customerAddresses.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.label || 'Endereço'} — {a.street}{a.number ? `, ${a.number}` : ''}, {a.city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </PropRow>
 
-            {order.estimated_duration_min && (
-              <PropRow label="Duração">
-                <span className="text-sm">{order.estimated_duration_min} min</span>
-              </PropRow>
-            )}
+            <PropRow label="Equipamento">
+              <Select value={form.machine_id} onValueChange={(v) => setForm(p => ({ ...p, machine_id: v }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <SelectValue placeholder="Nenhum equipamento" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {customerMachines.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.model}{m.serial_number ? ` • ${m.serial_number}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropRow>
+
+            <PropRow label="Início">
+              <Input
+                type="datetime-local"
+                value={form.scheduled_start}
+                onChange={e => setForm(p => ({ ...p, scheduled_start: e.target.value }))}
+                className="h-8 w-auto border-none shadow-none bg-transparent hover:bg-muted/50 px-2 text-sm"
+              />
+            </PropRow>
+
+            <PropRow label="Fim">
+              <Input
+                type="datetime-local"
+                value={form.scheduled_end}
+                onChange={e => setForm(p => ({ ...p, scheduled_end: e.target.value }))}
+                className="h-8 w-auto border-none shadow-none bg-transparent hover:bg-muted/50 px-2 text-sm"
+              />
+            </PropRow>
+
+            <PropRow label="Duração (min)">
+              <Input
+                type="number"
+                min={0}
+                value={form.estimated_duration_min}
+                onChange={e => setForm(p => ({ ...p, estimated_duration_min: parseInt(e.target.value) || 0 }))}
+                className="h-8 w-20 border-none shadow-none bg-transparent hover:bg-muted/50 px-2 text-sm"
+              />
+            </PropRow>
 
             {order.customer?.phone && (
               <PropRow label="Telefone">
                 <span className="text-sm">{order.customer.phone}</span>
-              </PropRow>
-            )}
-
-            {addressStr && (
-              <PropRow label="Endereço">
-                <span className="text-sm">{addressStr}</span>
-              </PropRow>
-            )}
-
-            {order.machine && (
-              <PropRow label="Equipamento">
-                <span className="text-sm">{order.machine.model}{order.machine.serial_number ? ` • ${order.machine.serial_number}` : ''}</span>
               </PropRow>
             )}
           </div>
