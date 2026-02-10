@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Printer, Eye, EyeOff, ArrowRight, UserPlus } from 'lucide-react';
+import { Printer, Eye, EyeOff, ArrowRight, UserPlus, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import loginBg from '@/assets/login-bg.jpg';
 
@@ -189,7 +189,10 @@ const LoginPage = () => {
             </div>
 
             {error && (
-              <p className="text-sm text-destructive font-medium">{error}</p>
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive animate-fade-in">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span className="font-medium">{error}</span>
+              </div>
             )}
 
             <Button
