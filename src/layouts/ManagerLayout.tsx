@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import appIcon from '@/assets/app-icon.svg';
+import appIcon from '@/assets/app-icon.png';
 import {
   LayoutDashboard, Calendar, Kanban, Users, BarChart3,
   LogOut, Settings, ChevronLeft, Menu, Building2,
