@@ -42,6 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let initialLoaded = false;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
@@ -50,19 +52,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setUser(null);
       }
+      initialLoaded = true;
       setLoading(false);
     });
 
     // Then check current session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
+      if (!initialLoaded) {
+        if (session?.user) {
+          const profile = await fetchUserProfile(session.user.id);
+          setUser(profile);
+        }
+        setLoading(false);
       }
+    }).catch(() => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Safety timeout — never stay loading forever
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
