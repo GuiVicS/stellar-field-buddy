@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 interface EditTechnicianDialogProps {
   open: boolean;
@@ -21,14 +22,34 @@ interface EditTechnicianDialogProps {
 
 const EditTechnicianDialog = ({ open, onOpenChange, technician }: EditTechnicianDialogProps) => {
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'tecnico' });
   const queryClient = useQueryClient();
+
+  const { data: userRole } = useQuery({
+    queryKey: ['user-role', technician?.user_id],
+    queryFn: async () => {
+      if (!technician?.user_id) return null;
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', technician.user_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.role || 'tecnico';
+    },
+    enabled: !!technician?.user_id && open,
+  });
 
   useEffect(() => {
     if (technician) {
-      setForm({ name: technician.name, email: technician.email, phone: technician.phone || '' });
+      setForm({
+        name: technician.name,
+        email: technician.email,
+        phone: technician.phone || '',
+        role: userRole || 'tecnico',
+      });
     }
-  }, [technician]);
+  }, [technician, userRole]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,16 +61,24 @@ const EditTechnicianDialog = ({ open, onOpenChange, technician }: EditTechnician
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ name: form.name.trim(), phone: form.phone.trim() })
         .eq('id', technician.id);
+      if (profileError) throw profileError;
 
-      if (error) throw error;
+      // Update role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .update({ role: form.role as any })
+        .eq('user_id', technician.user_id);
+      if (roleError) throw roleError;
+
       toast.success('Usuário atualizado!');
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
+      queryClient.invalidateQueries({ queryKey: ['user-role', technician.user_id] });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atualizar');
     } finally {
@@ -75,6 +104,19 @@ const EditTechnicianDialog = ({ open, onOpenChange, technician }: EditTechnician
           <div className="space-y-2">
             <Label htmlFor="edit-phone">Telefone</Label>
             <Input id="edit-phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="(11) 99999-0000" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-role">Perfil</Label>
+            <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tecnico">Técnico</SelectItem>
+                <SelectItem value="gerente">Gerente</SelectItem>
+                <SelectItem value="admin">Administrador</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
