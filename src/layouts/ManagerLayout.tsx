@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import appIcon from '@/assets/app-icon.svg';
 import {
   LayoutDashboard, Calendar, Kanban, Users, BarChart3,
   LogOut, Settings, ChevronLeft, Menu, Building2,
@@ -43,8 +44,8 @@ const ManagerLayout = () => {
       )}>
         {/* Logo */}
         <div className={cn("flex items-center gap-2.5 px-4 h-14 border-b border-sidebar-border", collapsed && "justify-center px-2")}>
-          <div className="w-8 h-8 rounded-lg brand-gradient flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-black text-white">S</span>
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+            <img src={appIcon} alt="Stellar Print" className="w-full h-full" />
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
