@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
+import AvatarUpload from '@/components/AvatarUpload';
 
 const TechnicianHome = () => {
   const { user } = useAuth();
@@ -33,8 +34,13 @@ const TechnicianHome = () => {
   return (
     <div className="animate-fade-in">
       <div className="brand-gradient px-5 pt-6 pb-8 text-primary-foreground">
-        <p className="text-sm opacity-80">Bom dia,</p>
-        <h1 className="text-2xl font-bold">{firstName} 👋</h1>
+        <div className="flex items-center gap-3 mb-3">
+          <AvatarUpload currentUrl={user?.avatar_url} userId={user?.user_id || ''} name={user?.name} size="md" editable={false} />
+          <div>
+            <p className="text-sm opacity-80">Bom dia,</p>
+            <h1 className="text-2xl font-bold">{firstName} 👋</h1>
+          </div>
+        </div>
         <div className="flex gap-4 mt-4">
           <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl px-4 py-2.5 flex-1 text-center">
             <div className="text-xl font-bold">{orders.length}</div>

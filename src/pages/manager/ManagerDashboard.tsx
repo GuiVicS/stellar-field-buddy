@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
 import NewOrderDialog from '@/components/NewOrderDialog';
+import AvatarUpload from '@/components/AvatarUpload';
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
@@ -134,9 +135,7 @@ const ManagerDashboard = () => {
               return (
                 <Card key={tech.id} className="p-4 shadow-card border-border/50">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full brand-gradient flex items-center justify-center text-xs font-bold text-primary-foreground">
-                      {tech.name.charAt(0)}
-                    </div>
+                    <AvatarUpload currentUrl={tech.avatar_url} userId={tech.user_id} name={tech.name} size="sm" editable={false} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{tech.name}</div>
                       <div className="text-xs text-muted-foreground">{techOrders.length} OS • {done} concluída(s)</div>

@@ -87,8 +87,12 @@ const ManagerLayout = () => {
           </button>
           
           <div className={cn("flex items-center gap-3 px-3 py-2", collapsed && "justify-center px-0")}>
-            <div className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-xs font-bold text-primary-foreground flex-shrink-0">
-              {user?.name?.charAt(0)}
+            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 bg-primary/10">
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-primary">{user?.name?.charAt(0)}</span>
+              )}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
