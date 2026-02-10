@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Home, Calendar, ClipboardList, User, Wifi, WifiOff } from 'lucide-react';
+import { Home, Calendar, Archive, User, Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import NotificationBell from '@/components/NotificationBell';
 import appIcon from '@/assets/app-icon.png';
@@ -8,7 +8,7 @@ import appIcon from '@/assets/app-icon.png';
 const navItems = [
   { to: '/tech', icon: Home, label: 'Hoje', end: true },
   { to: '/tech/agenda', icon: Calendar, label: 'Agenda' },
-  { to: '/tech/orders', icon: ClipboardList, label: 'OS' },
+  { to: '/tech/history', icon: Archive, label: 'Histórico' },
   { to: '/tech/profile', icon: User, label: 'Perfil' },
 ];
 

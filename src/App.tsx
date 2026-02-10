@@ -16,6 +16,7 @@ import ReportsPage from "./pages/manager/ReportsPage";
 import CustomersPage from "./pages/manager/CustomersPage";
 import TechnicianHome from "./pages/technician/TechnicianHome";
 import TechnicianAgenda from "./pages/technician/TechnicianAgenda";
+import TechnicianHistory from "./pages/technician/TechnicianHistory";
 import TechnicianProfile from "./pages/technician/TechnicianProfile";
 import ServiceOrderWizard from "./pages/technician/ServiceOrderWizard";
 import NotFound from "./pages/NotFound";
@@ -58,8 +59,9 @@ const AppRoutes = () => (
     <Route path="/tech" element={<ProtectedRoute><TechnicianLayout /></ProtectedRoute>}>
       <Route index element={<TechnicianHome />} />
       <Route path="agenda" element={<TechnicianAgenda />} />
-      <Route path="orders" element={<TechnicianHome />} />
+      <Route path="history" element={<TechnicianHistory />} />
       <Route path="os/:id" element={<ServiceOrderWizard />} />
+      <Route path="profile" element={<TechnicianProfile />} />
       <Route path="profile" element={<TechnicianProfile />} />
     </Route>
 
