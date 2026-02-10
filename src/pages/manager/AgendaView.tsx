@@ -1,12 +1,13 @@
-import React from 'react';
-import { useServiceOrders } from '@/hooks/useServiceOrders';
-import { OS_STATUS_COLORS, OS_TYPE_LABELS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
+import React, { useCallback } from 'react';
+import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
+import { OS_STATUS_COLORS } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
 import NewOrderDialog from '@/components/NewOrderDialog';
+import { useToast } from '@/hooks/use-toast';
 
 const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
@@ -14,11 +15,13 @@ const AgendaView = () => {
   const [date, setDate] = React.useState(new Date());
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [newOrderOpen, setNewOrderOpen] = React.useState(false);
+  const [dragOverHour, setDragOverHour] = React.useState<number | null>(null);
   const { data: allOrders = [], isLoading } = useServiceOrders();
+  const updateOrder = useUpdateServiceOrder();
+  const { toast } = useToast();
 
   const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Filter orders for selected date
   const orders = allOrders.filter(os => {
     const osDate = new Date(os.scheduled_start);
     return (
@@ -40,8 +43,55 @@ const AgendaView = () => {
     return d;
   });
 
-  const isToday =
-    date.toDateString() === new Date().toDateString();
+  const isToday = date.toDateString() === new Date().toDateString();
+
+  const handleDragStart = useCallback((e: React.DragEvent, osId: string) => {
+    e.dataTransfer.setData('text/plain', osId);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, hour: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverHour(hour);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverHour(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetHour: number) => {
+    e.preventDefault();
+    setDragOverHour(null);
+    const osId = e.dataTransfer.getData('text/plain');
+    if (!osId) return;
+
+    const os = allOrders.find(o => o.id === osId);
+    if (!os) return;
+
+    const oldStart = new Date(os.scheduled_start);
+    const oldHour = oldStart.getHours();
+    if (oldHour === targetHour) return;
+
+    const diffMs = (targetHour - oldHour) * 60 * 60 * 1000;
+    const newStart = new Date(oldStart.getTime() + diffMs);
+    const newEnd = os.scheduled_end
+      ? new Date(new Date(os.scheduled_end).getTime() + diffMs)
+      : null;
+
+    updateOrder.mutate({
+      id: osId,
+      scheduled_start: newStart.toISOString(),
+      ...(newEnd ? { scheduled_end: newEnd.toISOString() } : {}),
+    }, {
+      onSuccess: () => {
+        toast({ title: `⏰ OS movida para ${String(targetHour).padStart(2, '0')}:00` });
+      },
+      onError: (err) => {
+        toast({ title: 'Erro ao mover OS', description: String(err), variant: 'destructive' });
+      },
+    });
+  }, [allOrders, updateOrder, toast]);
 
   if (isLoading) {
     return (
@@ -75,6 +125,10 @@ const AgendaView = () => {
         </div>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        💡 Arraste os cards para reagendar o horário
+      </p>
+
       <div className="border border-border rounded-xl overflow-hidden bg-card shadow-card">
         <div className="grid grid-cols-[60px_1fr] divide-x divide-border">
           {hours.map(hour => {
@@ -82,20 +136,31 @@ const AgendaView = () => {
               const h = new Date(os.scheduled_start).getHours();
               return h === hour;
             });
+            const isOver = dragOverHour === hour;
 
             return (
               <React.Fragment key={hour}>
                 <div className="p-2 text-xs text-muted-foreground text-right border-b border-border bg-muted/30 font-mono">
                   {String(hour).padStart(2, '0')}:00
                 </div>
-                <div className="p-2 border-b border-border min-h-[60px]">
+                <div
+                  className={cn(
+                    "p-2 border-b border-border min-h-[60px] transition-colors",
+                    isOver && "bg-accent/10 ring-2 ring-inset ring-accent/30"
+                  )}
+                  onDragOver={(e) => handleDragOver(e, hour)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, hour)}
+                >
                   <div className="flex gap-2 flex-wrap">
                     {ordersAtHour.map(os => (
                       <div
                         key={os.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, os.id)}
                         onClick={() => setSelectedOrder(os)}
                         className={cn(
-                          "px-3 py-2 rounded-lg text-xs cursor-pointer transition-all hover:scale-[1.02]",
+                          "px-3 py-2 rounded-lg text-xs cursor-grab active:cursor-grabbing transition-all hover:scale-[1.02] select-none",
                           OS_STATUS_COLORS[os.status]
                         )}
                       >
