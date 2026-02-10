@@ -36,47 +36,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let initialLoaded = false;
+    let isMounted = true;
 
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUser(profile);
-      } else {
-        setUser(null);
+    // Listener for ONGOING auth changes (does NOT control loading)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!isMounted) return;
+        if (session?.user) {
+          fetchUserProfile(session.user.id).then(profile => {
+            if (isMounted) setUser(profile);
+          });
+        } else {
+          setUser(null);
+        }
       }
-      initialLoaded = true;
-      setLoading(false);
-    });
+    );
 
-    // Then check current session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!initialLoaded) {
+    // INITIAL load (controls loading)
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
         if (session?.user) {
           const profile = await fetchUserProfile(session.user.id);
-          setUser(profile);
+          if (isMounted) setUser(profile);
         }
-        setLoading(false);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    }).catch(() => {
-      setLoading(false);
-    });
+    };
 
-    // Safety timeout — never stay loading forever
+    initializeAuth();
+
+    // Safety timeout
     const timeout = setTimeout(() => {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }, 5000);
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return !error;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) return false;
+
+    // Wait for profile to load before returning success
+    const profile = await fetchUserProfile(data.user.id);
+    setUser(profile);
+    return true;
   }, []);
 
   const logout = useCallback(async () => {
