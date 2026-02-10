@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Wrench } from 'lucide-react';
+import { Wrench, Plus } from 'lucide-react';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useCreateServiceOrder } from '@/hooks/useServiceOrders';
@@ -18,6 +18,7 @@ import { OS_TYPE_LABELS } from '@/types';
 import type { OSType } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
+import QuickCustomerDialog from '@/components/QuickCustomerDialog';
 
 type DBPriority = Database['public']['Enums']['priority'];
 type DBOSType = Database['public']['Enums']['os_type'];
@@ -33,6 +34,7 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
   const { data: customers = [] } = useCustomers();
   const { data: profiles = [] } = useProfiles();
   const createOrder = useCreateServiceOrder();
+  const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
 
   const technicians = profiles.filter(p => p.active);
 
@@ -99,6 +101,7 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
   ];
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -117,19 +120,31 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
             <Label className="text-sm font-medium">
               Cliente <span className="text-destructive">*</span>
             </Label>
-            <Select value={form.customer_id} onValueChange={v => update('customer_id', v)}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Escolha o cliente" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-[100]">
-                {customers.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-                {customers.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente cadastrado</div>
-                )}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={form.customer_id} onValueChange={v => update('customer_id', v)}>
+                <SelectTrigger className="h-11 flex-1">
+                  <SelectValue placeholder="Escolha o cliente" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                  {customers.length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum cliente cadastrado</div>
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-11 w-11 flex-shrink-0"
+                onClick={() => setQuickCustomerOpen(true)}
+                title="Cadastrar novo cliente"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Tipo + Prioridade lado a lado */}
@@ -231,6 +246,13 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <QuickCustomerDialog
+      open={quickCustomerOpen}
+      onOpenChange={setQuickCustomerOpen}
+      onCreated={(id) => update('customer_id', id)}
+    />
+    </>
   );
 };
 
