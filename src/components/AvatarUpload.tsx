@@ -29,6 +29,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { refreshProfile } = useAuth();
   const qc = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -64,6 +65,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
 
       setPreview(url);
       qc.invalidateQueries({ queryKey: ['profiles'] });
+      await refreshProfile();
       toast({ title: 'Foto atualizada!' });
     } catch (e: any) {
       toast({ title: 'Erro ao enviar foto', description: e.message, variant: 'destructive' });
