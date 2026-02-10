@@ -83,12 +83,12 @@ const LoginPage = () => {
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img src={loginBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 brand-gradient opacity-85" />
-        <div className="relative z-10 flex flex-col justify-between p-12 text-primary-foreground">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-              <Printer className="w-5 h-5 text-accent-foreground" />
+        <div className="relative z-10 flex flex-col justify-between p-12 text-white">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <span className="text-sm font-black text-white">S</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">Stellar Print</span>
+            <span className="text-lg font-bold tracking-tight">Stellar Print</span>
           </div>
 
           <div className="max-w-md">
@@ -119,11 +119,11 @@ const LoginPage = () => {
       {/* Right panel - form */}
       <div className="flex-1 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-lg brand-gradient flex items-center justify-center">
-              <Printer className="w-5 h-5 text-primary-foreground" />
+          <div className="lg:hidden flex items-center gap-2.5 mb-10">
+            <div className="w-9 h-9 rounded-lg brand-gradient flex items-center justify-center">
+              <span className="text-sm font-black text-white">S</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">Stellar Print</span>
+            <span className="text-lg font-bold tracking-tight">Stellar Print</span>
           </div>
 
           <h2 className="text-2xl font-bold mb-1">
