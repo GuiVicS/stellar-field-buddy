@@ -14,8 +14,9 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   Plus, Search, Building2, Phone, Mail, MapPin, Cpu,
-  ChevronRight, User,
+  ChevronRight, User, Upload,
 } from 'lucide-react';
+import ImportCustomersDialog from '@/components/ImportCustomersDialog';
 import { cn } from '@/lib/utils';
 
 /* ─── New Customer Dialog ─── */
@@ -290,6 +291,7 @@ const CustomersPage = () => {
   const { data: customers, isLoading } = useCustomers();
   const [search, setSearch] = useState('');
   const [newOpen, setNewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filtered = (customers || []).filter(c =>
@@ -308,9 +310,14 @@ const CustomersPage = () => {
           <h1 className="text-xl font-bold text-foreground">Clientes</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} cliente{filtered.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button onClick={() => setNewOpen(true)} className="gap-1.5">
-          <Plus className="w-4 h-4" /> Novo Cliente
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
+            <Upload className="w-4 h-4" /> Importar
+          </Button>
+          <Button onClick={() => setNewOpen(true)} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Novo Cliente
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -418,6 +425,7 @@ const CustomersPage = () => {
       </div>
 
       <NewCustomerDialog open={newOpen} onOpenChange={setNewOpen} />
+      <ImportCustomersDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 };
