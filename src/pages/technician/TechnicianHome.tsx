@@ -24,8 +24,9 @@ const TechnicianHome = () => {
   const updateOrder = useUpdateServiceOrder();
   const { toast } = useToast();
   const orders = allOrders.filter(o => o.technician_id === user?.user_id);
-  const analytics = useOSAnalytics(orders as any);
+  const pending = orders.filter(o => o.status !== 'concluido' && o.status !== 'cancelado');
   const done = orders.filter(o => o.status === 'concluido').length;
+  const analytics = useOSAnalytics(orders as any);
   const firstName = user?.name?.split(' ')[0] || 'Técnico';
 
   if (isLoading) {
@@ -50,16 +51,16 @@ const TechnicianHome = () => {
         </div>
         <div className="flex gap-4 mt-4">
           <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl px-4 py-2.5 flex-1 text-center">
-            <div className="text-xl font-bold">{orders.length}</div>
-            <div className="text-[10px] uppercase tracking-wider opacity-70">Visitas</div>
+            <div className="text-xl font-bold">{pending.length}</div>
+            <div className="text-[10px] uppercase tracking-wider opacity-70">Pendentes</div>
           </div>
           <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl px-4 py-2.5 flex-1 text-center">
             <div className="text-xl font-bold">{done}</div>
             <div className="text-[10px] uppercase tracking-wider opacity-70">Concluídas</div>
           </div>
           <div className="bg-primary-foreground/10 backdrop-blur-sm rounded-xl px-4 py-2.5 flex-1 text-center">
-            <div className="text-xl font-bold">{orders.length - done}</div>
-            <div className="text-[10px] uppercase tracking-wider opacity-70">Pendentes</div>
+            <div className="text-xl font-bold">{orders.length}</div>
+            <div className="text-[10px] uppercase tracking-wider opacity-70">Total</div>
           </div>
         </div>
       </div>
@@ -109,13 +110,13 @@ const TechnicianHome = () => {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Checklist do dia
         </h2>
-        {orders.length === 0 && (
+        {pending.length === 0 && (
           <Card className="p-8 text-center text-muted-foreground">
             <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" />
-            <p>Nenhuma OS atribuída a você</p>
+            <p>Nenhuma OS pendente — bom trabalho! 🎉</p>
           </Card>
         )}
-        {orders.map((os, i) => {
+        {pending.map((os, i) => {
           const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           const endTime = os.scheduled_end ? new Date(os.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
           const isDone = os.status === 'concluido';
