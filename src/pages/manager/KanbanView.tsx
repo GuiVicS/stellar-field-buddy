@@ -1,5 +1,5 @@
 import React from 'react';
-import { useServiceOrders } from '@/hooks/useServiceOrders';
+import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
 import type { OSStatus } from '@/types';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Clock, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
+import { toast } from 'sonner';
 
 const columns: { status: OSStatus; label: string; color: string }[] = [
   { status: 'a_fazer', label: 'A Fazer', color: 'border-t-status-pending' },
@@ -18,7 +19,27 @@ const columns: { status: OSStatus; label: string; color: string }[] = [
 
 const KanbanView = () => {
   const { data: allOrders = [], isLoading } = useServiceOrders();
+  const updateOrder = useUpdateServiceOrder();
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [dragOverCol, setDragOverCol] = React.useState<OSStatus | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, osId: string) => {
+    e.dataTransfer.setData('osId', osId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetStatus: OSStatus) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    const osId = e.dataTransfer.getData('osId');
+    const os = allOrders.find(o => o.id === osId);
+    if (!os || os.status === targetStatus) return;
+    const label = columns.find(c => c.status === targetStatus)?.label;
+    updateOrder.mutate({ id: osId, status: targetStatus }, {
+      onSuccess: () => toast.success(`OS movida para "${label}"`),
+      onError: () => toast.error('Erro ao mover OS'),
+    });
+  };
 
   if (isLoading) {
     return (
@@ -42,8 +63,18 @@ const KanbanView = () => {
         {columns.map(col => {
           const orders = allOrders.filter(o => o.status === col.status);
           return (
-            <div key={col.status} className="flex-shrink-0 w-72 lg:w-80 flex flex-col max-h-[calc(100vh-200px)]">
-              <div className={cn("rounded-xl border border-border/50 bg-muted/30 overflow-hidden border-t-4 flex flex-col h-full", col.color)}>
+            <div
+              key={col.status}
+              className="flex-shrink-0 w-72 lg:w-80 flex flex-col max-h-[calc(100vh-200px)]"
+              onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.status); }}
+              onDragLeave={() => setDragOverCol(null)}
+              onDrop={(e) => handleDrop(e, col.status)}
+            >
+              <div className={cn(
+                "rounded-xl border border-border/50 bg-muted/30 overflow-hidden border-t-4 flex flex-col h-full transition-colors",
+                col.color,
+                dragOverCol === col.status && "bg-accent/40 ring-2 ring-primary/30"
+              )}>
                 <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
                   <h3 className="text-sm font-semibold">{col.label}</h3>
                   <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium text-muted-foreground">
@@ -54,7 +85,7 @@ const KanbanView = () => {
                   {orders.map(os => {
                     const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     return (
-                      <Card key={os.id} onClick={() => setSelectedOrder(os)} className="p-3 shadow-card border-border/50 hover:shadow-elevated transition-all cursor-pointer">
+                      <Card key={os.id} draggable onDragStart={(e) => handleDragStart(e, os.id)} onClick={() => setSelectedOrder(os)} className="p-3 shadow-card border-border/50 hover:shadow-elevated transition-all cursor-grab active:cursor-grabbing active:opacity-70">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[11px] font-mono font-semibold text-accent">{os.code}</span>
                           <span className={cn("status-badge text-[10px]", PRIORITY_COLORS[os.priority])}>
