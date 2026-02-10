@@ -1,15 +1,27 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent,
 } from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
+import type { OSStatus, OSType, Priority } from '@/types';
 import { cn } from '@/lib/utils';
-import { Clock, MapPin, Phone, Printer, User, FileText, Calendar, Wrench, Camera, Mic, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import {
+  Clock, MapPin, Phone, Printer, User, FileText, Calendar, Wrench,
+  Paperclip, X, Loader2, Download, Trash2, Save,
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useUpdateServiceOrder } from '@/hooks/useServiceOrders';
+import { useProfiles } from '@/hooks/useProfiles';
 import { useToast } from '@/hooks/use-toast';
 
 interface OrderDetailDialogProps {
@@ -18,74 +30,189 @@ interface OrderDetailDialogProps {
   order: any | null;
 }
 
-const InfoRow = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value?: string | null }) => {
-  if (!value) return null;
-  return (
-    <div className="flex items-start gap-3 text-sm">
-      <Icon className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-      <div>
-        <span className="text-muted-foreground text-xs">{label}</span>
-        <p className="font-medium">{value}</p>
-      </div>
-    </div>
-  );
+/* ─── Editable text block (Notion-style) ─── */
+const EditableBlock = ({
+  label,
+  value,
+  onChange,
+  placeholder,
+  multiline = true,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+}) => (
+  <div className="group">
+    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+    {multiline ? (
+      <Textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder || `Adicionar ${label.toLowerCase()}...`}
+        className="mt-1 min-h-[60px] bg-transparent border-none shadow-none resize-none px-0 focus-visible:ring-0 text-sm placeholder:text-muted-foreground/40"
+      />
+    ) : (
+      <Input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder || `Adicionar ${label.toLowerCase()}...`}
+        className="mt-1 bg-transparent border-none shadow-none px-0 focus-visible:ring-0 text-sm h-8 placeholder:text-muted-foreground/40"
+      />
+    )}
+  </div>
+);
+
+/* ─── Property Row (Notion-style) ─── */
+const PropRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="flex items-center gap-4 py-1.5 group">
+    <span className="text-xs text-muted-foreground w-28 flex-shrink-0">{label}</span>
+    <div className="flex-1">{children}</div>
+  </div>
+);
+
+/* ─── File type helpers ─── */
+const getFileKind = (file: File): 'photo' | 'audio' | 'file' => {
+  if (file.type.startsWith('image/')) return 'photo';
+  if (file.type.startsWith('audio/')) return 'audio';
+  return 'file';
+};
+
+const getEvidenceIcon = (kind: string, url: string) => {
+  if (kind === 'photo') return '🖼️';
+  if (kind === 'audio') return '🎵';
+  if (url?.endsWith('.pdf')) return '📄';
+  return '📎';
 };
 
 const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const updateOrder = useUpdateServiceOrder();
+  const { data: profiles = [] } = useProfiles();
+  const technicians = profiles.filter(p => p.active);
+
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Local editable state
+  const [form, setForm] = useState({
+    status: '' as OSStatus,
+    priority: '' as Priority,
+    type: '' as OSType,
+    technician_id: '' as string,
+    problem_description: '',
+    diagnosis: '',
+    resolution: '',
+    next_steps: '',
+  });
+
+  // Sync form when order changes
+  useEffect(() => {
+    if (order) {
+      setForm({
+        status: order.status,
+        priority: order.priority,
+        type: order.type,
+        technician_id: order.technician_id || '',
+        problem_description: order.problem_description || '',
+        diagnosis: order.diagnosis || '',
+        resolution: order.resolution || '',
+        next_steps: order.next_steps || '',
+      });
+    }
+  }, [order]);
 
   const { data: evidences = [] } = useQuery({
     queryKey: ['evidences', order?.id],
     queryFn: async () => {
       if (!order?.id) return [];
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('evidences')
         .select('*')
         .eq('os_id', order.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
       return data || [];
     },
     enabled: !!order?.id && open,
   });
 
-  const handleFileUpload = async (file: File, kind: 'photo' | 'audio') => {
+  const handleSave = async () => {
     if (!order?.id) return;
+    setSaving(true);
+    updateOrder.mutate({
+      id: order.id,
+      status: form.status,
+      priority: form.priority,
+      type: form.type,
+      technician_id: form.technician_id || null,
+      problem_description: form.problem_description,
+      diagnosis: form.diagnosis,
+      resolution: form.resolution,
+      next_steps: form.next_steps,
+    }, {
+      onSuccess: () => {
+        toast({ title: '✅ OS atualizada!' });
+        setSaving(false);
+      },
+      onError: (err) => {
+        toast({ title: 'Erro ao salvar', description: String(err), variant: 'destructive' });
+        setSaving(false);
+      },
+    });
+  };
+
+  const handleFileUpload = async (files: FileList) => {
+    if (!order?.id || files.length === 0) return;
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${order.id}/${Date.now()}.${ext}`;
+      for (const file of Array.from(files)) {
+        const ext = file.name.split('.').pop();
+        const path = `${order.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const kind = getFileKind(file);
 
-      const { error: uploadError } = await supabase.storage
-        .from('evidences')
-        .upload(path, file);
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('evidences')
+          .upload(path, file);
+        if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from('evidences')
-        .getPublicUrl(path);
+        const { data: urlData } = supabase.storage
+          .from('evidences')
+          .getPublicUrl(path);
 
-      const { error: insertError } = await supabase
-        .from('evidences')
-        .insert({
+        await supabase.from('evidences').insert({
           os_id: order.id,
           kind,
           file_url: urlData.publicUrl,
           created_by: user?.user_id || null,
         });
-      if (insertError) throw insertError;
+      }
 
       qc.invalidateQueries({ queryKey: ['evidences', order.id] });
-      toast({ title: kind === 'photo' ? '📷 Foto anexada!' : '🎙️ Áudio anexado!' });
+      toast({ title: `📎 ${files.length} arquivo(s) anexado(s)!` });
     } catch (e: any) {
-      toast({ title: 'Erro ao enviar arquivo', description: e.message, variant: 'destructive' });
+      toast({ title: 'Erro ao enviar', description: e.message, variant: 'destructive' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteEvidence = async (ev: any) => {
+    try {
+      // Extract path from URL
+      const url = new URL(ev.file_url);
+      const path = url.pathname.split('/evidences/')[1];
+      if (path) {
+        await supabase.storage.from('evidences').remove([decodeURIComponent(path)]);
+      }
+      await supabase.from('evidences').delete().eq('id', ev.id);
+      qc.invalidateQueries({ queryKey: ['evidences', order?.id] });
+      toast({ title: 'Arquivo removido' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao remover', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -93,7 +220,7 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
 
   const scheduledStart = new Date(order.scheduled_start);
   const time = scheduledStart.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const date = scheduledStart.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dateStr = scheduledStart.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const endTime = order.scheduled_end
     ? new Date(order.scheduled_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : null;
@@ -103,215 +230,274 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
     : null;
 
   const photos = evidences.filter((e: any) => e.kind === 'photo');
-  const audios = evidences.filter((e: any) => e.kind === 'audio');
+  const otherFiles = evidences.filter((e: any) => e.kind !== 'photo');
+
+  const hasChanges =
+    form.status !== order.status ||
+    form.priority !== order.priority ||
+    form.type !== order.type ||
+    (form.technician_id || '') !== (order.technician_id || '') ||
+    form.problem_description !== (order.problem_description || '') ||
+    form.diagnosis !== (order.diagnosis || '') ||
+    form.resolution !== (order.resolution || '') ||
+    form.next_steps !== (order.next_steps || '');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
             <span className="text-sm font-mono font-bold text-accent">{order.code}</span>
-            <span className={cn("status-badge", OS_STATUS_COLORS[order.status])}>
-              {OS_STATUS_LABELS[order.status]}
-            </span>
-            <span className={cn("status-badge", PRIORITY_COLORS[order.priority])}>
-              {PRIORITY_LABELS[order.priority]}
-            </span>
+            <span className="text-lg font-semibold truncate">{order.customer?.name || 'Cliente'}</span>
           </div>
-          <DialogTitle className="text-lg mt-1">
-            {order.customer?.name || 'Cliente'}
-          </DialogTitle>
-        </DialogHeader>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {hasChanges && (
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={saving}
+                className="brand-gradient text-primary-foreground"
+              >
+                {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                Salvar
+              </Button>
+            )}
+          </div>
+        </div>
 
-        <div className="space-y-5 pt-1">
-          {/* Info principal */}
-          <div className="space-y-3">
-            <InfoRow icon={Wrench} label="Tipo de serviço" value={OS_TYPE_LABELS[order.type]} />
-            <InfoRow icon={Calendar} label="Data" value={date} />
-            <InfoRow icon={Clock} label="Período" value={endTime ? `${time} – ${endTime}` : time} />
+        <div className="px-6 py-5 space-y-6">
+          {/* Properties (Notion-style) */}
+          <div className="space-y-0.5">
+            <PropRow label="Status">
+              <Select value={form.status} onValueChange={(v) => setForm(p => ({ ...p, status: v as OSStatus }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <span className={cn("status-badge text-xs", OS_STATUS_COLORS[form.status])}>
+                    {OS_STATUS_LABELS[form.status]}
+                  </span>
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  {(Object.entries(OS_STATUS_LABELS) as [OSStatus, string][]).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      <span className={cn("status-badge text-xs", OS_STATUS_COLORS[k])}>{v}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropRow>
+
+            <PropRow label="Prioridade">
+              <Select value={form.priority} onValueChange={(v) => setForm(p => ({ ...p, priority: v as Priority }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[120px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <span className={cn("status-badge text-xs", PRIORITY_COLORS[form.priority])}>
+                    {PRIORITY_LABELS[form.priority]}
+                  </span>
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  {(Object.entries(PRIORITY_LABELS) as [Priority, string][]).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      <span className={cn("status-badge text-xs", PRIORITY_COLORS[k])}>{v}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropRow>
+
+            <PropRow label="Tipo">
+              <Select value={form.type} onValueChange={(v) => setForm(p => ({ ...p, type: v as OSType }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[140px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  {(Object.entries(OS_TYPE_LABELS) as [OSType, string][]).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropRow>
+
+            <PropRow label="Técnico">
+              <Select value={form.technician_id} onValueChange={(v) => setForm(p => ({ ...p, technician_id: v }))}>
+                <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
+                  <SelectValue placeholder="Nenhum atribuído" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-[100]">
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {technicians.map(t => (
+                    <SelectItem key={t.id} value={t.user_id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </PropRow>
+
+            <PropRow label="Data">
+              <span className="text-sm">{dateStr}</span>
+            </PropRow>
+
+            <PropRow label="Período">
+              <span className="text-sm">{endTime ? `${time} – ${endTime}` : time}</span>
+            </PropRow>
+
             {order.estimated_duration_min && (
-              <InfoRow icon={Clock} label="Duração estimada" value={`${order.estimated_duration_min} minutos`} />
+              <PropRow label="Duração">
+                <span className="text-sm">{order.estimated_duration_min} min</span>
+              </PropRow>
+            )}
+
+            {order.customer?.phone && (
+              <PropRow label="Telefone">
+                <span className="text-sm">{order.customer.phone}</span>
+              </PropRow>
+            )}
+
+            {addressStr && (
+              <PropRow label="Endereço">
+                <span className="text-sm">{addressStr}</span>
+              </PropRow>
+            )}
+
+            {order.machine && (
+              <PropRow label="Equipamento">
+                <span className="text-sm">{order.machine.model}{order.machine.serial_number ? ` • ${order.machine.serial_number}` : ''}</span>
+              </PropRow>
             )}
           </div>
 
           <Separator />
 
-          {/* Cliente */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cliente</h3>
-            <InfoRow icon={User} label="Contato" value={order.customer?.main_contact_name || order.customer?.name} />
-            <InfoRow icon={Phone} label="Telefone" value={order.customer?.phone} />
-            <InfoRow icon={MapPin} label="Endereço" value={addressStr} />
-          </div>
+          {/* Editable text blocks */}
+          <EditableBlock
+            label="Descrição do Problema"
+            value={form.problem_description}
+            onChange={v => setForm(p => ({ ...p, problem_description: v }))}
+            placeholder="Descreva o problema relatado pelo cliente..."
+          />
 
-          {/* Equipamento */}
-          {order.machine && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Equipamento</h3>
-                <InfoRow icon={Printer} label="Modelo" value={order.machine.model} />
-                <InfoRow icon={FileText} label="Nº de série" value={order.machine.serial_number} />
-              </div>
-            </>
-          )}
+          <EditableBlock
+            label="Diagnóstico"
+            value={form.diagnosis}
+            onChange={v => setForm(p => ({ ...p, diagnosis: v }))}
+            placeholder="Adicionar diagnóstico técnico..."
+          />
 
-          {/* Técnico */}
-          {order.technician && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Técnico</h3>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-xs font-bold text-primary-foreground">
-                    {order.technician.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{order.technician.name}</p>
-                    {order.technician.phone && (
-                      <p className="text-xs text-muted-foreground">{order.technician.phone}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          <EditableBlock
+            label="Resolução"
+            value={form.resolution}
+            onChange={v => setForm(p => ({ ...p, resolution: v }))}
+            placeholder="Descrever a resolução aplicada..."
+          />
 
-          {/* Descrição do problema */}
-          {order.problem_description && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Descrição do Problema</h3>
-                <p className="text-sm leading-relaxed text-foreground bg-muted/50 rounded-lg p-3">
-                  {order.problem_description}
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Diagnóstico */}
-          {order.diagnosis && (
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Diagnóstico</h3>
-              <p className="text-sm leading-relaxed text-foreground bg-muted/50 rounded-lg p-3">
-                {order.diagnosis}
-              </p>
-            </div>
-          )}
-
-          {/* Resolução */}
-          {order.resolution && (
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resolução</h3>
-              <p className="text-sm leading-relaxed text-foreground bg-muted/50 rounded-lg p-3">
-                {order.resolution}
-              </p>
-            </div>
-          )}
+          <EditableBlock
+            label="Próximos Passos"
+            value={form.next_steps}
+            onChange={v => setForm(p => ({ ...p, next_steps: v }))}
+            placeholder="Adicionar próximos passos..."
+          />
 
           {/* Timestamps */}
           {(order.arrived_at || order.started_at || order.finished_at) && (
             <>
               <Separator />
-              <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Histórico</h3>
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  {order.arrived_at && (
-                    <p>📍 Chegou às {new Date(order.arrived_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                  )}
-                  {order.started_at && (
-                    <p>🔧 Iniciou às {new Date(order.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                  )}
-                  {order.finished_at && (
-                    <p>✅ Finalizou às {new Date(order.finished_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                  )}
+              <div>
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Histórico</span>
+                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {order.arrived_at && <p>📍 Chegou às {new Date(order.arrived_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
+                  {order.started_at && <p>🔧 Iniciou às {new Date(order.started_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
+                  {order.finished_at && <p>✅ Finalizou às {new Date(order.finished_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>}
                 </div>
               </div>
             </>
           )}
 
-          {/* Anexos */}
+          {/* Attachments */}
           <Separator />
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Anexos</h3>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => photoInputRef.current?.click()}
-                  disabled={uploading}
-                  className="text-xs"
-                >
-                  {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
-                  Foto
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => audioInputRef.current?.click()}
-                  disabled={uploading}
-                  className="text-xs"
-                >
-                  {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Mic className="w-3 h-3 mr-1" />}
-                  Áudio
-                </Button>
-              </div>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Anexos ({evidences.length})
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="text-xs h-7"
+              >
+                {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Paperclip className="w-3 h-3 mr-1" />}
+                Anexar arquivo
+              </Button>
             </div>
 
             <input
-              ref={photoInputRef}
+              ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(file, 'photo');
-                e.target.value = '';
-              }}
-            />
-            <input
-              ref={audioInputRef}
-              type="file"
-              accept="audio/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(file, 'audio');
+                if (e.target.files) handleFileUpload(e.target.files);
                 e.target.value = '';
               }}
             />
 
-            {/* Photos grid */}
+            {/* Photo grid */}
             {photos.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2 mb-3">
                 {photos.map((ev: any) => (
-                  <a key={ev.id} href={ev.file_url} target="_blank" rel="noopener noreferrer" className="block">
-                    <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
-                      <img src={ev.file_url} alt="Evidência" className="w-full h-full object-cover hover:scale-105 transition-transform" />
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-
-            {/* Audios list */}
-            {audios.length > 0 && (
-              <div className="space-y-2">
-                {audios.map((ev: any) => (
-                  <div key={ev.id} className="flex items-center gap-3 bg-muted/50 rounded-lg p-2">
-                    <Mic className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <audio controls className="flex-1 h-8" src={ev.file_url} />
+                  <div key={ev.id} className="relative group aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                    <a href={ev.file_url} target="_blank" rel="noopener noreferrer">
+                      <img src={ev.file_url} alt="" className="w-full h-full object-cover" />
+                    </a>
+                    <button
+                      onClick={() => handleDeleteEvidence(ev)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive/80 text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
                 ))}
               </div>
             )}
 
-            {photos.length === 0 && audios.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-3">
-                Nenhum anexo adicionado
-              </p>
+            {/* Other files (audio, pdf, etc) */}
+            {otherFiles.length > 0 && (
+              <div className="space-y-1.5 mb-3">
+                {otherFiles.map((ev: any) => {
+                  const fileName = decodeURIComponent(ev.file_url.split('/').pop() || 'arquivo');
+                  return (
+                    <div key={ev.id} className="group flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
+                      <span className="text-base">{getEvidenceIcon(ev.kind, ev.file_url)}</span>
+                      <div className="flex-1 min-w-0">
+                        {ev.kind === 'audio' ? (
+                          <audio controls className="w-full h-7" src={ev.file_url} />
+                        ) : (
+                          <a href={ev.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline truncate block">
+                            {fileName}
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a href={ev.file_url} download target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                        <button onClick={() => handleDeleteEvidence(ev)} className="text-muted-foreground hover:text-destructive">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {evidences.length === 0 && !uploading && (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border/50 rounded-lg py-6 text-center cursor-pointer hover:border-accent/50 hover:bg-muted/20 transition-colors"
+              >
+                <Paperclip className="w-5 h-5 mx-auto text-muted-foreground/50 mb-1" />
+                <p className="text-xs text-muted-foreground">Clique ou arraste para anexar fotos, áudios, PDFs...</p>
+              </div>
             )}
           </div>
         </div>

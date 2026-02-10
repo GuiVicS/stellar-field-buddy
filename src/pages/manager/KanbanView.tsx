@@ -42,15 +42,15 @@ const KanbanView = () => {
         {columns.map(col => {
           const orders = allOrders.filter(o => o.status === col.status);
           return (
-            <div key={col.status} className="flex-shrink-0 w-72 lg:w-80">
-              <div className={cn("rounded-xl border border-border/50 bg-muted/30 overflow-hidden border-t-4", col.color)}>
-                <div className="px-4 py-3 flex items-center justify-between">
+            <div key={col.status} className="flex-shrink-0 w-72 lg:w-80 flex flex-col max-h-[calc(100vh-200px)]">
+              <div className={cn("rounded-xl border border-border/50 bg-muted/30 overflow-hidden border-t-4 flex flex-col h-full", col.color)}>
+                <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
                   <h3 className="text-sm font-semibold">{col.label}</h3>
                   <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium text-muted-foreground">
                     {orders.length}
                   </span>
                 </div>
-                <div className="px-3 pb-3 space-y-2 min-h-[200px]">
+                <div className="px-3 pb-3 space-y-2 min-h-[200px] overflow-y-auto flex-1 scrollbar-hide">
                   {orders.map(os => {
                     const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     return (
