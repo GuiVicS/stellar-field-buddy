@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowLeft, MapPin, Phone, Clock, Printer, User, Camera, Plus,
   CheckCircle2, FileText, Package, PenTool, ChevronRight, ChevronLeft,
-  Trash2, Loader2,
+  Trash2, Loader2, MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -166,14 +166,27 @@ const ServiceOrderWizard = () => {
   return (
     <div className="animate-fade-in">
       <div className="brand-gradient px-5 pt-4 pb-5 text-primary-foreground">
-        <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="p-1">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <span className="text-xs opacity-70">{os.code}</span>
-            <h1 className="text-lg font-bold">{os.customer?.name}</h1>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="p-1">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <span className="text-xs opacity-70">{os.code}</span>
+              <h1 className="text-lg font-bold">{os.customer?.name}</h1>
+            </div>
           </div>
+          {os.customer?.phone && (
+            <a
+              href={`https://wa.me/${os.customer.phone.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[hsl(142,70%,40%)] text-white text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp
+            </a>
+          )}
         </div>
         <div className="flex items-center gap-3 text-xs">
           <Select
