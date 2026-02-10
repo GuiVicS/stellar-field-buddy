@@ -225,8 +225,9 @@ const DayColumn: React.FC<{
   const layoutEvents = useMemo(() => computeOverlapLayout(dayOrders), [dayOrders]);
 
   const isToday = isSameDay(date, new Date());
-  const PADDING = 2; // px gap between side-by-side events
+  const PADDING = 4; // px gap between side-by-side events
   const LEFT_MARGIN = 4; // px from left edge
+  const MAX_WIDTH_PCT = 0.85; // leave 15% free for drop zone
 
   return (
     <div className="flex-1 min-w-0 relative border-r border-border/30 last:border-r-0">
@@ -282,8 +283,9 @@ const DayColumn: React.FC<{
         {layoutEvents.map((le) => {
           const top = (le.startMin / 60) * HOUR_HEIGHT;
           const height = Math.max(((le.endMin - le.startMin) / 60) * HOUR_HEIGHT, 24);
-          const colWidth = `calc((100% - ${LEFT_MARGIN + PADDING}px) / ${le.totalCols})`;
-          const left = `calc(${LEFT_MARGIN}px + (100% - ${LEFT_MARGIN + PADDING}px) * ${le.col} / ${le.totalCols})`;
+          const availableWidth = MAX_WIDTH_PCT;
+          const colWidth = `calc(${availableWidth * 100}% / ${le.totalCols} - ${PADDING}px)`;
+          const left = `calc(${LEFT_MARGIN}px + ${availableWidth * 100}% * ${le.col} / ${le.totalCols})`;
 
           return (
             <TimeEvent
@@ -298,7 +300,7 @@ const DayColumn: React.FC<{
                 height,
                 minHeight: 24,
                 left,
-                width: `calc(${colWidth} - ${PADDING}px)`,
+                width: colWidth,
               }}
             />
           );
