@@ -122,6 +122,19 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
   const { data: customerAddresses = [] } = useCustomerAddresses(form.customer_id || undefined);
   const { data: customerMachines = [] } = useMachines(form.customer_id || undefined);
 
+  // Helper: convert ISO/UTC string to local datetime-local format
+  const toLocalDatetimeString = (isoStr: string | null | undefined): string => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   // Sync form when order changes
   useEffect(() => {
     if (order) {
@@ -133,8 +146,8 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
         customer_id: order.customer_id || '',
         address_id: order.address_id || '',
         machine_id: order.machine_id || '',
-        scheduled_start: order.scheduled_start ? order.scheduled_start.slice(0, 16) : '',
-        scheduled_end: order.scheduled_end ? order.scheduled_end.slice(0, 16) : '',
+        scheduled_start: toLocalDatetimeString(order.scheduled_start),
+        scheduled_end: toLocalDatetimeString(order.scheduled_end),
         estimated_duration_min: order.estimated_duration_min || 60,
         problem_description: order.problem_description || '',
         diagnosis: order.diagnosis || '',
