@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { useChecklist, useToggleChecklistItem } from '@/hooks/useChecklist';
 import { useTimeline } from '@/hooks/useTimeline';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS } from '@/types';
+import { OS_STATUS_LABELS, OS_STATUS_COLORS, type OSStatus } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -174,10 +175,29 @@ const ServiceOrderWizard = () => {
             <h1 className="text-lg font-bold">{os.customer?.name}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs opacity-80">
-          <span className="status-badge bg-primary-foreground/20 text-primary-foreground">
-            {OS_STATUS_LABELS[os.status]}
-          </span>
+        <div className="flex items-center gap-3 text-xs">
+          <Select
+            value={os.status}
+            onValueChange={(value: string) => {
+              updateOrder.mutate({ id: os.id, status: value as any }, {
+                onSuccess: () => toast({ title: '✅ Status atualizado!' }),
+              });
+            }}
+          >
+            <SelectTrigger className="h-7 w-auto gap-1.5 border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground text-xs font-medium px-2.5 [&>svg]:text-primary-foreground">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.entries(OS_STATUS_LABELS) as [OSStatus, string][]).map(([key, label]) => (
+                <SelectItem key={key} value={key}>
+                  <span className="flex items-center gap-2">
+                    <span className={cn("w-2 h-2 rounded-full", OS_STATUS_COLORS[key].split(' ')[0])} />
+                    {label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {os.machine && <span className="flex items-center gap-1"><Printer className="w-3 h-3" />{os.machine.model}</span>}
         </div>
       </div>
