@@ -1,19 +1,47 @@
 import React from 'react';
 import { useServiceOrders } from '@/hooks/useServiceOrders';
-import { OS_STATUS_COLORS } from '@/types';
+import { OS_STATUS_COLORS, OS_TYPE_LABELS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
+import NewOrderDialog from '@/components/NewOrderDialog';
 
 const hours = Array.from({ length: 12 }, (_, i) => i + 7);
 
 const AgendaView = () => {
-  const [date] = React.useState(new Date());
-  const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const { data: orders = [], isLoading } = useServiceOrders();
+  const [date, setDate] = React.useState(new Date());
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [newOrderOpen, setNewOrderOpen] = React.useState(false);
+  const { data: allOrders = [], isLoading } = useServiceOrders();
+
+  const dayLabel = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Filter orders for selected date
+  const orders = allOrders.filter(os => {
+    const osDate = new Date(os.scheduled_start);
+    return (
+      osDate.getFullYear() === date.getFullYear() &&
+      osDate.getMonth() === date.getMonth() &&
+      osDate.getDate() === date.getDate()
+    );
+  });
+
+  const goToday = () => setDate(new Date());
+  const goPrev = () => setDate(prev => {
+    const d = new Date(prev);
+    d.setDate(d.getDate() - 1);
+    return d;
+  });
+  const goNext = () => setDate(prev => {
+    const d = new Date(prev);
+    d.setDate(d.getDate() + 1);
+    return d;
+  });
+
+  const isToday =
+    date.toDateString() === new Date().toDateString();
 
   if (isLoading) {
     return (
@@ -32,9 +60,18 @@ const AgendaView = () => {
           <p className="text-sm text-muted-foreground capitalize">{dayLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon"><ChevronLeft className="w-4 h-4" /></Button>
-          <Button variant="outline" size="sm">Hoje</Button>
-          <Button variant="outline" size="icon"><ChevronRight className="w-4 h-4" /></Button>
+          <Button variant="outline" size="icon" onClick={goPrev}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={goToday} disabled={isToday}>
+            Hoje
+          </Button>
+          <Button variant="outline" size="icon" onClick={goNext}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <Button className="brand-gradient text-primary-foreground ml-2" onClick={() => setNewOrderOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Nova OS
+          </Button>
         </div>
       </div>
 
@@ -75,7 +112,14 @@ const AgendaView = () => {
         </div>
       </div>
 
+      {orders.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          Nenhuma OS agendada para este dia
+        </div>
+      )}
+
       <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
+      <NewOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} />
     </div>
   );
 };

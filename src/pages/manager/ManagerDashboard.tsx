@@ -1,7 +1,7 @@
 import React from 'react';
 import { useServiceOrders } from '@/hooks/useServiceOrders';
 import { useProfiles } from '@/hooks/useProfiles';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
+import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
 import { Card } from '@/components/ui/card';
 import { ClipboardList, CheckCircle2, Clock, AlertTriangle, TrendingUp, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,46 +9,24 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
+import NewOrderDialog from '@/components/NewOrderDialog';
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
   const { data: orders = [], isLoading } = useServiceOrders();
   const { data: profiles = [] } = useProfiles();
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
+  const [newOrderOpen, setNewOrderOpen] = React.useState(false);
 
   const technicians = profiles.filter(p =>
     orders.some(o => o.technician_id === p.user_id)
   );
 
   const stats = [
-    {
-      label: 'Total OS Hoje',
-      value: orders.length,
-      icon: ClipboardList,
-      color: 'text-accent',
-      bg: 'bg-accent/10',
-    },
-    {
-      label: 'Concluídas',
-      value: orders.filter(o => o.status === 'concluido').length,
-      icon: CheckCircle2,
-      color: 'text-status-done',
-      bg: 'bg-status-done/10',
-    },
-    {
-      label: 'Em Andamento',
-      value: orders.filter(o => ['em_deslocamento', 'em_atendimento'].includes(o.status)).length,
-      icon: TrendingUp,
-      color: 'text-status-active',
-      bg: 'bg-status-active/10',
-    },
-    {
-      label: 'Urgentes',
-      value: orders.filter(o => o.priority === 'urgente').length,
-      icon: AlertTriangle,
-      color: 'text-priority-urgent',
-      bg: 'bg-priority-urgent/10',
-    },
+    { label: 'Total OS', value: orders.length, icon: ClipboardList, color: 'text-accent', bg: 'bg-accent/10' },
+    { label: 'Concluídas', value: orders.filter(o => o.status === 'concluido').length, icon: CheckCircle2, color: 'text-status-done', bg: 'bg-status-done/10' },
+    { label: 'Em Andamento', value: orders.filter(o => ['em_deslocamento', 'em_atendimento'].includes(o.status)).length, icon: TrendingUp, color: 'text-status-active', bg: 'bg-status-active/10' },
+    { label: 'Urgentes', value: orders.filter(o => o.priority === 'urgente').length, icon: AlertTriangle, color: 'text-priority-urgent', bg: 'bg-priority-urgent/10' },
   ];
 
   if (isLoading) {
@@ -69,7 +47,7 @@ const ManagerDashboard = () => {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Visão geral das operações</p>
         </div>
-        <Button onClick={() => navigate('/manager/orders')} className="brand-gradient text-primary-foreground">
+        <Button onClick={() => setNewOrderOpen(true)} className="brand-gradient text-primary-foreground">
           Nova OS
         </Button>
       </div>
@@ -93,9 +71,9 @@ const ManagerDashboard = () => {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Ordens de Serviço</h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/manager/kanban')} className="text-accent text-xs">
-              Ver Kanban <ArrowRight className="w-3 h-3 ml-1" />
+            <h2 className="text-lg font-semibold">Últimas Ordens de Serviço</h2>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/manager/agenda')} className="text-accent text-xs">
+              Ver Agenda <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
           <div className="space-y-2">
@@ -183,6 +161,7 @@ const ManagerDashboard = () => {
       </div>
 
       <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
+      <NewOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} />
     </div>
   );
 };
