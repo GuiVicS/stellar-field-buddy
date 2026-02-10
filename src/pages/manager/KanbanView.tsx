@@ -2,10 +2,12 @@ import React from 'react';
 import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
 import type { OSStatus } from '@/types';
-import { Clock, MapPin, GripVertical, Package, Truck, Wrench, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, MapPin, GripVertical, Package, Truck, Wrench, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
+import NewOrderDialog from '@/components/NewOrderDialog';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const columns: { status: OSStatus; label: string; icon: React.ReactNode; gradient: string; dotColor: string }[] = [
@@ -51,6 +53,7 @@ const KanbanView = () => {
   const updateOrder = useUpdateServiceOrder();
   const [selectedOrder, setSelectedOrder] = React.useState<any>(null);
   const [dragOverCol, setDragOverCol] = React.useState<OSStatus | null>(null);
+  const [newOrderStatus, setNewOrderStatus] = React.useState<OSStatus | null>(null);
 
   const handleDragStart = (e: React.DragEvent, osId: string) => {
     e.dataTransfer.setData('osId', osId);
@@ -111,14 +114,24 @@ const KanbanView = () => {
                   <div className={cn("w-2 h-2 rounded-full", col.dotColor)} />
                   <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
                 </div>
-                <span className={cn(
-                  "text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center",
-                  orders.length > 0
-                    ? "bg-foreground/10 text-foreground"
-                    : "bg-muted text-muted-foreground"
-                )}>
-                  {orders.length}
-                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rounded-full hover:bg-foreground/10"
+                    onClick={() => setNewOrderStatus(col.status)}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                  <span className={cn(
+                    "text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center",
+                    orders.length > 0
+                      ? "bg-foreground/10 text-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    {orders.length}
+                  </span>
+                </div>
               </div>
 
               {/* Column body */}
@@ -205,6 +218,11 @@ const KanbanView = () => {
       </div>
 
       <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
+      <NewOrderDialog
+        open={!!newOrderStatus}
+        onOpenChange={(open) => !open && setNewOrderStatus(null)}
+        defaultStatus={newOrderStatus || undefined}
+      />
     </div>
   );
 };
