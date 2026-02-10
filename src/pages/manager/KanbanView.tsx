@@ -1,20 +1,49 @@
 import React from 'react';
 import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
+import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
 import type { OSStatus } from '@/types';
-import { Card } from '@/components/ui/card';
-import { Clock, MapPin } from 'lucide-react';
+import { Clock, MapPin, GripVertical, Package, Truck, Wrench, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import OrderDetailDialog from '@/components/OrderDetailDialog';
 import { toast } from 'sonner';
 
-const columns: { status: OSStatus; label: string; color: string }[] = [
-  { status: 'a_fazer', label: 'A Fazer', color: 'border-t-status-pending' },
-  { status: 'em_deslocamento', label: 'Em Deslocamento', color: 'border-t-status-transit' },
-  { status: 'em_atendimento', label: 'Em Atendimento', color: 'border-t-status-active' },
-  { status: 'aguardando_peca', label: 'Aguardando Peça', color: 'border-t-status-waiting' },
-  { status: 'concluido', label: 'Concluído', color: 'border-t-status-done' },
+const columns: { status: OSStatus; label: string; icon: React.ReactNode; gradient: string; dotColor: string }[] = [
+  {
+    status: 'a_fazer',
+    label: 'A Fazer',
+    icon: <Package className="w-4 h-4" />,
+    gradient: 'from-amber-500/10 to-amber-500/5',
+    dotColor: 'bg-amber-500',
+  },
+  {
+    status: 'em_deslocamento',
+    label: 'Em Deslocamento',
+    icon: <Truck className="w-4 h-4" />,
+    gradient: 'from-orange-500/10 to-orange-500/5',
+    dotColor: 'bg-orange-500',
+  },
+  {
+    status: 'em_atendimento',
+    label: 'Em Atendimento',
+    icon: <Wrench className="w-4 h-4" />,
+    gradient: 'from-violet-500/10 to-violet-500/5',
+    dotColor: 'bg-violet-500',
+  },
+  {
+    status: 'aguardando_peca',
+    label: 'Aguardando Peça',
+    icon: <AlertCircle className="w-4 h-4" />,
+    gradient: 'from-rose-500/10 to-rose-500/5',
+    dotColor: 'bg-rose-500',
+  },
+  {
+    status: 'concluido',
+    label: 'Concluído',
+    icon: <CheckCircle2 className="w-4 h-4" />,
+    gradient: 'from-emerald-500/10 to-emerald-500/5',
+    dotColor: 'bg-emerald-500',
+  },
 ];
 
 const KanbanView = () => {
@@ -53,71 +82,119 @@ const KanbanView = () => {
   }
 
   return (
-    <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
+    <div className="p-4 lg:p-6 space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold">Kanban — Execução ao Vivo</h1>
-        <p className="text-sm text-muted-foreground">Acompanhe o status das ordens de serviço em tempo real</p>
+        <h1 className="text-2xl font-bold tracking-tight">Kanban</h1>
+        <p className="text-sm text-muted-foreground">Arraste os cards para alterar o status das ordens de serviço</p>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+      <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 lg:-mx-6 lg:px-6">
         {columns.map(col => {
           const orders = allOrders.filter(o => o.status === col.status);
+          const isDragOver = dragOverCol === col.status;
+
           return (
             <div
               key={col.status}
-              className="flex-shrink-0 w-72 lg:w-80 flex flex-col max-h-[calc(100vh-200px)]"
+              className="flex-shrink-0 w-[280px] lg:w-[300px] flex flex-col"
               onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.status); }}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={(e) => handleDrop(e, col.status)}
             >
+              {/* Column header */}
               <div className={cn(
-                "rounded-xl border border-border/50 bg-muted/30 overflow-hidden border-t-4 flex flex-col h-full transition-colors",
-                col.color,
-                dragOverCol === col.status && "bg-accent/40 ring-2 ring-primary/30"
+                "rounded-t-xl px-4 py-3 flex items-center justify-between bg-gradient-to-b transition-all",
+                col.gradient,
+                isDragOver && "ring-2 ring-primary/30"
               )}>
-                <div className="px-4 py-3 flex items-center justify-between flex-shrink-0">
-                  <h3 className="text-sm font-semibold">{col.label}</h3>
-                  <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium text-muted-foreground">
-                    {orders.length}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-2 h-2 rounded-full", col.dotColor)} />
+                  <h3 className="text-sm font-semibold text-foreground">{col.label}</h3>
                 </div>
-                <div className="px-3 pb-3 space-y-2 min-h-[200px] overflow-y-auto flex-1 scrollbar-hide">
+                <span className={cn(
+                  "text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center",
+                  orders.length > 0
+                    ? "bg-foreground/10 text-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                  {orders.length}
+                </span>
+              </div>
+
+              {/* Column body */}
+              <div className={cn(
+                "rounded-b-xl border border-t-0 border-border/40 bg-card/50 flex-1 min-h-[300px] max-h-[calc(100vh-240px)] overflow-y-auto transition-colors",
+                isDragOver && "bg-accent/5 border-primary/20"
+              )}>
+                <div className="p-2 space-y-2">
                   {orders.map(os => {
                     const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     return (
-                      <Card key={os.id} draggable onDragStart={(e) => handleDragStart(e, os.id)} onClick={() => setSelectedOrder(os)} className="p-3 shadow-card border-border/50 hover:shadow-elevated transition-all cursor-grab active:cursor-grabbing active:opacity-70">
+                      <div
+                        key={os.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, os.id)}
+                        onClick={() => setSelectedOrder(os)}
+                        className="group bg-card rounded-lg border border-border/50 p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing active:scale-[0.98] active:opacity-80"
+                      >
+                        {/* Top row: code + priority */}
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-mono font-semibold text-accent">{os.code}</span>
-                          <span className={cn("status-badge text-[10px]", PRIORITY_COLORS[os.priority])}>
+                          <span className="text-[11px] font-mono font-bold text-accent tracking-wide">{os.code}</span>
+                          <span className={cn(
+                            "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                            PRIORITY_COLORS[os.priority]
+                          )}>
                             {PRIORITY_LABELS[os.priority]}
                           </span>
                         </div>
-                        <div className="text-sm font-medium mb-1 truncate">{os.customer?.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{os.machine?.model}</div>
-                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
-                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Clock className="w-3 h-3" />
-                            {time}
-                          </div>
-                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <MapPin className="w-3 h-3" />
-                            {os.address?.city}
-                          </div>
+
+                        {/* Customer name */}
+                        <div className="text-sm font-semibold text-foreground mb-0.5 truncate">
+                          {os.customer?.name || '—'}
                         </div>
-                        {os.technician && (
-                          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-muted-foreground">
-                            <div className="w-5 h-5 rounded-full brand-gradient flex items-center justify-center text-[8px] font-bold text-primary-foreground">
-                              {os.technician.name.charAt(0)}
-                            </div>
-                            {os.technician.name}
+
+                        {/* Machine */}
+                        {os.machine?.model && (
+                          <div className="text-xs text-muted-foreground truncate mb-2">
+                            {os.machine.model}
+                            {os.machine.serial_number && ` • ${os.machine.serial_number}`}
                           </div>
                         )}
-                      </Card>
+
+                        {/* Footer: time, location, technician */}
+                        <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <Clock className="w-3 h-3 opacity-60" />
+                              <span>{time}</span>
+                            </div>
+                            {os.address?.city && (
+                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <MapPin className="w-3 h-3 opacity-60" />
+                                <span className="truncate max-w-[80px]">{os.address.city}</span>
+                              </div>
+                            )}
+                          </div>
+                          <GripVertical className="w-3.5 h-3.5 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+
+                        {/* Technician */}
+                        {os.technician && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-[9px] font-bold text-primary-foreground flex-shrink-0">
+                              {os.technician.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground truncate">{os.technician.name}</span>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
+
                   {orders.length === 0 && (
-                    <div className="flex items-center justify-center h-20 text-xs text-muted-foreground">
-                      Nenhuma OS
+                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/50">
+                      <div className="text-3xl mb-2 opacity-30">{col.icon}</div>
+                      <span className="text-xs">Nenhuma OS</span>
                     </div>
                   )}
                 </div>
