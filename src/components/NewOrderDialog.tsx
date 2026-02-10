@@ -26,9 +26,10 @@ type DBOSType = Database['public']['Enums']['os_type'];
 interface NewOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultStatus?: Database['public']['Enums']['os_status'];
 }
 
-const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
+const NewOrderDialog = ({ open, onOpenChange, defaultStatus }: NewOrderDialogProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { data: customers = [] } = useCustomers();
@@ -66,6 +67,7 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
       customer_id: form.customer_id,
       type: form.type as DBOSType,
       priority: form.priority,
+      status: defaultStatus || 'a_fazer',
       scheduled_start: scheduledStart.toISOString(),
       scheduled_end: scheduledEnd.toISOString(),
       estimated_duration_min: durationMin,
