@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 
 type ViewMode = 'day' | 'week' | 'month';
 
-const HOUR_HEIGHT = 60; // px per hour
+const HOUR_HEIGHT = 60;
 const START_HOUR = 6;
 const END_HOUR = 20;
 const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR);
@@ -27,7 +27,7 @@ const getWeekDays = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
   const start = new Date(d);
-  start.setDate(d.getDate() - day); // Sunday
+  start.setDate(d.getDate() - day);
   return Array.from({ length: 7 }, (_, i) => {
     const dd = new Date(start);
     dd.setDate(start.getDate() + i);
@@ -42,24 +42,90 @@ const getMonthDays = (date: Date) => {
   const last = new Date(year, month + 1, 0);
   const startDay = first.getDay();
   const days: Date[] = [];
-  // fill previous month
   for (let i = startDay - 1; i >= 0; i--) {
-    const d = new Date(year, month, -i);
-    days.push(d);
+    days.push(new Date(year, month, -i));
   }
-  // current month
   for (let i = 1; i <= last.getDate(); i++) {
     days.push(new Date(year, month, i));
   }
-  // fill next month to complete grid
   while (days.length % 7 !== 0) {
-    const d = new Date(year, month + 1, days.length - last.getDate() - startDay + 1);
-    days.push(d);
+    days.push(new Date(year, month + 1, days.length - last.getDate() - startDay + 1));
   }
   return days;
 };
 
 const formatTime = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+/* ── Google Calendar overlap layout algorithm ── */
+interface LayoutEvent {
+  os: any;
+  startMin: number;
+  endMin: number;
+  col: number;
+  totalCols: number;
+}
+
+function computeOverlapLayout(orders: any[]): LayoutEvent[] {
+  if (orders.length === 0) return [];
+
+  // Convert to { os, startMin, endMin }
+  const events = orders.map(os => {
+    const start = new Date(os.scheduled_start);
+    const end = os.scheduled_end
+      ? new Date(os.scheduled_end)
+      : new Date(start.getTime() + (os.estimated_duration_min || 60) * 60000);
+    const startMin = (start.getHours() - START_HOUR) * 60 + start.getMinutes();
+    const endMin = (end.getHours() - START_HOUR) * 60 + end.getMinutes();
+    return { os, startMin, endMin: Math.max(endMin, startMin + 15) };
+  }).filter(e => e.startMin >= 0).sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+  // Group into overlapping clusters (Google Calendar algorithm)
+  const result: LayoutEvent[] = [];
+  let clusterStart = 0;
+
+  while (clusterStart < events.length) {
+    // Find all events in this cluster
+    const cluster: typeof events = [events[clusterStart]];
+    let clusterEnd = events[clusterStart].endMin;
+
+    for (let i = clusterStart + 1; i < events.length; i++) {
+      if (events[i].startMin < clusterEnd) {
+        cluster.push(events[i]);
+        clusterEnd = Math.max(clusterEnd, events[i].endMin);
+      } else {
+        break;
+      }
+    }
+
+    // Assign columns using greedy algorithm
+    const columns: { endMin: number }[] = [];
+    for (const event of cluster) {
+      let placed = false;
+      for (let col = 0; col < columns.length; col++) {
+        if (event.startMin >= columns[col].endMin) {
+          columns[col].endMin = event.endMin;
+          result.push({ ...event, col, totalCols: 0 });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        result.push({ ...event, col: columns.length, totalCols: 0 });
+        columns.push({ endMin: event.endMin });
+      }
+    }
+
+    // Set totalCols for all events in this cluster
+    const totalCols = columns.length;
+    for (let i = result.length - cluster.length; i < result.length; i++) {
+      result[i].totalCols = totalCols;
+    }
+
+    clusterStart += cluster.length;
+  }
+
+  return result;
+}
 
 /* ── Event card for time grid ── */
 const TimeEvent: React.FC<{
@@ -67,7 +133,8 @@ const TimeEvent: React.FC<{
   onClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
   style: React.CSSProperties;
-}> = ({ os, onClick, onDragStart, style }) => {
+  compact?: boolean;
+}> = ({ os, onClick, onDragStart, style, compact }) => {
   const start = new Date(os.scheduled_start);
   const end = os.scheduled_end ? new Date(os.scheduled_end) : new Date(start.getTime() + (os.estimated_duration_min || 60) * 60000);
   return (
@@ -77,13 +144,13 @@ const TimeEvent: React.FC<{
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       style={style}
       className={cn(
-        "absolute left-1 right-1 rounded-md px-2 py-1 overflow-hidden cursor-grab active:cursor-grabbing transition-shadow hover:shadow-lg z-10 border border-primary/20",
+        "absolute rounded-md px-2 py-1 overflow-hidden cursor-grab active:cursor-grabbing transition-shadow hover:shadow-lg z-10 border-l-[3px] border-primary/40",
         OS_STATUS_COLORS[os.status as OSStatus]
       )}
     >
-      <div className="text-[10px] font-semibold opacity-80">{formatTime(start)} – {formatTime(end)}</div>
-      <div className="text-xs font-bold truncate">{os.customer?.name || os.code}</div>
-      {os.technician && <div className="text-[10px] opacity-70 truncate">{os.technician.name}</div>}
+      <div className="text-[10px] font-semibold opacity-80 leading-tight">{formatTime(start)} – {formatTime(end)}</div>
+      <div className={cn("font-bold truncate leading-tight", compact ? "text-[10px]" : "text-xs")}>{os.customer?.name || os.code}</div>
+      {!compact && os.technician && <div className="text-[10px] opacity-70 truncate">{os.technician.name}</div>}
     </div>
   );
 };
@@ -98,16 +165,21 @@ const DayColumn: React.FC<{
   onDrop: (e: React.DragEvent, hour: number) => void;
   dragOverHour: number | null;
   setDragOverHour: (h: number | null) => void;
-}> = ({ date, orders, showHeader, onSelectOrder, onDragStart, onDrop, dragOverHour, setDragOverHour }) => {
+  isWeekView?: boolean;
+}> = ({ date, orders, showHeader, onSelectOrder, onDragStart, onDrop, dragOverHour, setDragOverHour, isWeekView }) => {
   const dayOrders = orders.filter(os => {
     const osDate = new Date(os.scheduled_start);
     return isSameDay(osDate, date);
   });
 
+  const layoutEvents = useMemo(() => computeOverlapLayout(dayOrders), [dayOrders]);
+
   const isToday = isSameDay(date, new Date());
+  const PADDING = 2; // px gap between side-by-side events
+  const LEFT_MARGIN = 4; // px from left edge
 
   return (
-    <div className="flex-1 min-w-0 relative">
+    <div className="flex-1 min-w-0 relative border-r border-border/30 last:border-r-0">
       {showHeader && (
         <div className={cn(
           "text-center py-2 border-b border-border sticky top-0 bg-card z-20",
@@ -130,7 +202,7 @@ const DayColumn: React.FC<{
           <div
             key={hour}
             className={cn(
-              "absolute left-0 right-0 border-t border-border/40",
+              "absolute left-0 right-0 border-t border-border/30",
               dragOverHour === hour && "bg-accent/10"
             )}
             style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
@@ -139,27 +211,44 @@ const DayColumn: React.FC<{
             onDrop={(e) => onDrop(e, hour)}
           />
         ))}
-        {/* Events positioned absolutely */}
-        {dayOrders.map(os => {
-          const start = new Date(os.scheduled_start);
-          const end = os.scheduled_end
-            ? new Date(os.scheduled_end)
-            : new Date(start.getTime() + (os.estimated_duration_min || 60) * 60000);
 
-          const startMinutes = (start.getHours() - START_HOUR) * 60 + start.getMinutes();
-          const endMinutes = (end.getHours() - START_HOUR) * 60 + end.getMinutes();
-          const top = (startMinutes / 60) * HOUR_HEIGHT;
-          const height = Math.max(((endMinutes - startMinutes) / 60) * HOUR_HEIGHT, 24);
+        {/* Current time indicator */}
+        {isToday && (() => {
+          const now = new Date();
+          const nowMin = (now.getHours() - START_HOUR) * 60 + now.getMinutes();
+          if (nowMin < 0 || nowMin > (END_HOUR - START_HOUR) * 60) return null;
+          const top = (nowMin / 60) * HOUR_HEIGHT;
+          return (
+            <div className="absolute left-0 right-0 z-30 pointer-events-none" style={{ top }}>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-destructive -ml-1" />
+                <div className="flex-1 h-[2px] bg-destructive" />
+              </div>
+            </div>
+          );
+        })()}
 
-          if (startMinutes < 0) return null;
+        {/* Events positioned with overlap layout */}
+        {layoutEvents.map((le) => {
+          const top = (le.startMin / 60) * HOUR_HEIGHT;
+          const height = Math.max(((le.endMin - le.startMin) / 60) * HOUR_HEIGHT, 24);
+          const colWidth = `calc((100% - ${LEFT_MARGIN + PADDING}px) / ${le.totalCols})`;
+          const left = `calc(${LEFT_MARGIN}px + (100% - ${LEFT_MARGIN + PADDING}px) * ${le.col} / ${le.totalCols})`;
 
           return (
             <TimeEvent
-              key={os.id}
-              os={os}
-              onClick={() => onSelectOrder(os)}
-              onDragStart={(e) => onDragStart(e, os.id)}
-              style={{ top, height, minHeight: 24 }}
+              key={le.os.id}
+              os={le.os}
+              onClick={() => onSelectOrder(le.os)}
+              onDragStart={(e) => onDragStart(e, le.os.id)}
+              compact={isWeekView && le.totalCols > 1}
+              style={{
+                top,
+                height,
+                minHeight: 24,
+                left,
+                width: `calc(${colWidth} - ${PADDING}px)`,
+              }}
             />
           );
         })}
@@ -169,19 +258,22 @@ const DayColumn: React.FC<{
 };
 
 /* ── Time Gutter ── */
-const TimeGutter = () => (
-  <div className="w-14 flex-shrink-0 relative" style={{ height: hours.length * HOUR_HEIGHT }}>
-    {hours.map((hour, i) => (
-      <div
-        key={hour}
-        className="absolute left-0 right-0 text-[11px] text-muted-foreground text-right pr-2 font-mono"
-        style={{ top: i * HOUR_HEIGHT - 7 }}
-      >
-        {String(hour).padStart(2, '0')}:00
-      </div>
-    ))}
-  </div>
-);
+const TimeGutter = () => {
+  const isToday = isSameDay(new Date(), new Date());
+  return (
+    <div className="w-14 flex-shrink-0 relative" style={{ height: hours.length * HOUR_HEIGHT }}>
+      {hours.map((hour, i) => (
+        <div
+          key={hour}
+          className="absolute left-0 right-0 text-[11px] text-muted-foreground text-right pr-2 font-mono"
+          style={{ top: i * HOUR_HEIGHT - 7 }}
+        >
+          {String(hour).padStart(2, '0')}:00
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /* ── Month View ── */
 const MonthView: React.FC<{
@@ -202,7 +294,7 @@ const MonthView: React.FC<{
       <div className="grid grid-cols-7">
         {days.map((day, i) => {
           const isCurrentMonth = day.getMonth() === date.getMonth();
-          const isToday = isSameDay(day, today);
+          const isDayToday = isSameDay(day, today);
           const dayOrders = orders.filter(os => isSameDay(new Date(os.scheduled_start), day));
 
           return (
@@ -215,7 +307,7 @@ const MonthView: React.FC<{
             >
               <div className={cn(
                 "text-xs font-medium mb-1",
-                isToday && "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                isDayToday && "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
               )}>
                 {day.getDate()}
               </div>
@@ -327,7 +419,7 @@ const AgendaView = () => {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in h-full flex flex-col">
-      {/* Header */}
+      {/* Header — Google Calendar style */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate(0)} disabled={view === 'day' && isToday}>
@@ -343,7 +435,6 @@ const AgendaView = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View switcher */}
           <div className="flex rounded-lg border border-border overflow-hidden">
             {(['day', 'week', 'month'] as ViewMode[]).map(v => (
               <button
@@ -370,14 +461,12 @@ const AgendaView = () => {
       ) : (
         <div className="flex-1 overflow-auto border border-border rounded-xl bg-card">
           <div className="flex min-w-0">
-            {/* Time gutter */}
             <div className="flex-shrink-0 border-r border-border">
-              {(view === 'week') && <div className="h-[52px] border-b border-border" />}
-              {(view === 'day') && <div className="h-0" />}
+              {view === 'week' && <div className="h-[52px] border-b border-border" />}
+              {view === 'day' && <div className="h-0" />}
               <TimeGutter />
             </div>
 
-            {/* Day columns */}
             {view === 'day' ? (
               <DayColumn
                 date={date}
@@ -388,6 +477,7 @@ const AgendaView = () => {
                 onDrop={handleDrop}
                 dragOverHour={dragOverHour}
                 setDragOverHour={setDragOverHour}
+                isWeekView={false}
               />
             ) : (
               getWeekDays(date).map(d => (
@@ -401,6 +491,7 @@ const AgendaView = () => {
                   onDrop={handleDrop}
                   dragOverHour={dragOverHour}
                   setDragOverHour={setDragOverHour}
+                  isWeekView
                 />
               ))
             )}
