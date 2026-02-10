@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import AvatarUpload from '@/components/AvatarUpload';
+import CreateTechnicianDialog from '@/components/CreateTechnicianDialog';
 
 const TechniciansPage = () => {
   const { data: profiles = [], isLoading: loadingProfiles } = useProfiles();
@@ -28,7 +29,10 @@ const TechniciansPage = () => {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
-      <h1 className="text-2xl font-bold">Técnicos</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Técnicos</h1>
+        <CreateTechnicianDialog />
+      </div>
       {technicians.length === 0 && (
         <Card className="p-8 text-center text-muted-foreground">
           <p>Nenhum técnico cadastrado</p>
