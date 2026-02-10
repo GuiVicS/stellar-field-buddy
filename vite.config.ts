@@ -18,22 +18,23 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt"],
+      includeAssets: ["app-icon.svg", "robots.txt"],
       manifest: {
         name: "Stellar Print — Gestão Técnica",
         short_name: "Stellar Print",
         description: "Sistema de gestão de visitas técnicas e ordens de serviço",
-        theme_color: "#1a3a5c",
-        background_color: "#0f172a",
+        theme_color: "#ff5938",
+        background_color: "#fafafa",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
         scope: "/",
         icons: [
           {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
+            src: "/app-icon.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any",
           },
           {
             src: "/pwa-512x512.png",
