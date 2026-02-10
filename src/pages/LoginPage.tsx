@@ -5,9 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Printer, Eye, EyeOff, ArrowRight, UserPlus, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import loginBg from '@/assets/login-bg.jpg';
+import appIcon from '@/assets/app-icon.svg';
 
 const LoginPage = () => {
   const { login, isAuthenticated, user } = useAuth();
@@ -85,8 +86,8 @@ const LoginPage = () => {
         <div className="absolute inset-0 brand-gradient opacity-85" />
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <span className="text-sm font-black text-white">S</span>
+            <div className="w-9 h-9 rounded-lg overflow-hidden">
+              <img src={appIcon} alt="Stellar Print" className="w-full h-full" />
             </div>
             <span className="text-lg font-bold tracking-tight">Stellar Print</span>
           </div>
@@ -120,8 +121,8 @@ const LoginPage = () => {
       <div className="flex-1 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-9 h-9 rounded-lg brand-gradient flex items-center justify-center">
-              <span className="text-sm font-black text-white">S</span>
+            <div className="w-9 h-9 rounded-lg overflow-hidden">
+              <img src={appIcon} alt="Stellar Print" className="w-full h-full" />
             </div>
             <span className="text-lg font-bold tracking-tight">Stellar Print</span>
           </div>
