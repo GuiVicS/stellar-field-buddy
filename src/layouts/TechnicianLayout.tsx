@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, Calendar, ClipboardList, User, Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import NotificationBell from '@/components/NotificationBell';
 
 const navItems = [
   { to: '/tech', icon: Home, label: 'Hoje', end: true },
@@ -18,11 +19,14 @@ const TechnicianLayout = () => {
     <div className="flex flex-col h-screen bg-background">
       {/* Status bar */}
       <div className={cn(
-        "flex items-center justify-center gap-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider",
+        "flex items-center justify-between px-4 py-1 text-[10px] font-semibold uppercase tracking-wider",
         isOnline ? "bg-status-done text-status-done-foreground" : "bg-status-waiting text-status-waiting-foreground"
       )}>
-        {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-        {isOnline ? 'Online' : 'Offline — dados serão sincronizados'}
+        <div className="flex items-center gap-1.5">
+          {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          {isOnline ? 'Online' : 'Offline — dados serão sincronizados'}
+        </div>
+        <NotificationBell />
       </div>
 
       {/* Content */}
