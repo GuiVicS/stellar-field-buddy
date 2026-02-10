@@ -132,16 +132,58 @@ const TimeEvent: React.FC<{
   os: any;
   onClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
+  onResizeEnd: (osId: string, newEndMin: number) => void;
   style: React.CSSProperties;
   compact?: boolean;
-}> = ({ os, onClick, onDragStart, style, compact }) => {
+}> = ({ os, onClick, onDragStart, onResizeEnd, style, compact }) => {
   const start = new Date(os.scheduled_start);
   const end = os.scheduled_end ? new Date(os.scheduled_end) : new Date(start.getTime() + (os.estimated_duration_min || 60) * 60000);
+  const resizingRef = React.useRef(false);
+  const startYRef = React.useRef(0);
+  const startHeightRef = React.useRef(0);
+  const elRef = React.useRef<HTMLDivElement>(null);
+
+  const handleResizeStart = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = true;
+    startYRef.current = e.clientY;
+    startHeightRef.current = elRef.current?.offsetHeight || 0;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizingRef.current || !elRef.current) return;
+      const delta = ev.clientY - startYRef.current;
+      const newHeight = Math.max(24, startHeightRef.current + delta);
+      elRef.current.style.height = `${newHeight}px`;
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      if (!resizingRef.current || !elRef.current) return;
+      resizingRef.current = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      const finalHeight = elRef.current.offsetHeight;
+      const durationMin = (finalHeight / HOUR_HEIGHT) * 60;
+      const startMin = (start.getHours() - START_HOUR) * 60 + start.getMinutes();
+      const newEndMin = startMin + durationMin;
+      onResizeEnd(os.id, newEndMin);
+    };
+
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [os.id, start, onResizeEnd]);
+
   return (
     <div
+      ref={elRef}
       draggable
       onDragStart={onDragStart}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onClick={(e) => { if (!resizingRef.current) { e.stopPropagation(); onClick(); } }}
       style={style}
       className={cn(
         "absolute rounded-md px-2 py-1 overflow-hidden cursor-grab active:cursor-grabbing transition-shadow hover:shadow-lg z-10 border-l-[3px] border-primary/40",
@@ -151,6 +193,13 @@ const TimeEvent: React.FC<{
       <div className="text-[10px] font-semibold opacity-80 leading-tight">{formatTime(start)} – {formatTime(end)}</div>
       <div className={cn("font-bold truncate leading-tight", compact ? "text-[10px]" : "text-xs")}>{os.customer?.name || os.code}</div>
       {!compact && os.technician && <div className="text-[10px] opacity-70 truncate">{os.technician.name}</div>}
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize group/resize flex items-end justify-center"
+      >
+        <div className="w-8 h-[3px] rounded-full bg-foreground/20 group-hover/resize:bg-foreground/50 mb-0.5 transition-colors" />
+      </div>
     </div>
   );
 };
@@ -163,10 +212,11 @@ const DayColumn: React.FC<{
   onSelectOrder: (os: any) => void;
   onDragStart: (e: React.DragEvent, osId: string) => void;
   onDrop: (e: React.DragEvent, hour: number) => void;
+  onResizeEnd: (osId: string, newEndMin: number) => void;
   dragOverHour: number | null;
   setDragOverHour: (h: number | null) => void;
   isWeekView?: boolean;
-}> = ({ date, orders, showHeader, onSelectOrder, onDragStart, onDrop, dragOverHour, setDragOverHour, isWeekView }) => {
+}> = ({ date, orders, showHeader, onSelectOrder, onDragStart, onDrop, onResizeEnd, dragOverHour, setDragOverHour, isWeekView }) => {
   const dayOrders = orders.filter(os => {
     const osDate = new Date(os.scheduled_start);
     return isSameDay(osDate, date);
@@ -241,6 +291,7 @@ const DayColumn: React.FC<{
               os={le.os}
               onClick={() => onSelectOrder(le.os)}
               onDragStart={(e) => onDragStart(e, le.os.id)}
+              onResizeEnd={onResizeEnd}
               compact={isWeekView && le.totalCols > 1}
               style={{
                 top,
@@ -408,6 +459,30 @@ const AgendaView = () => {
     });
   }, [allOrders, updateOrder, toast]);
 
+  const handleResizeEnd = useCallback((osId: string, newEndMin: number) => {
+    const os = allOrders.find(o => o.id === osId);
+    if (!os) return;
+    const start = new Date(os.scheduled_start);
+    const newEndHour = Math.floor(newEndMin / 60) + START_HOUR;
+    const newEndMinute = Math.round(newEndMin % 60 / 15) * 15; // snap to 15min
+    const newEnd = new Date(start);
+    newEnd.setHours(newEndHour, newEndMinute, 0, 0);
+    if (newEnd <= start) return;
+
+    const durationMin = Math.round((newEnd.getTime() - start.getTime()) / 60000);
+    const endH = String(newEnd.getHours()).padStart(2, '0');
+    const endM = String(newEnd.getMinutes()).padStart(2, '0');
+
+    updateOrder.mutate({
+      id: osId,
+      scheduled_end: newEnd.toISOString(),
+      estimated_duration_min: durationMin,
+    }, {
+      onSuccess: () => toast({ title: `⏰ Duração ajustada até ${endH}:${endM}` }),
+      onError: (err) => toast({ title: 'Erro ao redimensionar', description: String(err), variant: 'destructive' }),
+    });
+  }, [allOrders, updateOrder, toast]);
+
   if (isLoading) {
     return (
       <div className="p-4 lg:p-6 space-y-4">
@@ -475,6 +550,7 @@ const AgendaView = () => {
                 onSelectOrder={setSelectedOrder}
                 onDragStart={handleDragStart}
                 onDrop={handleDrop}
+                onResizeEnd={handleResizeEnd}
                 dragOverHour={dragOverHour}
                 setDragOverHour={setDragOverHour}
                 isWeekView={false}
@@ -489,6 +565,7 @@ const AgendaView = () => {
                   onSelectOrder={setSelectedOrder}
                   onDragStart={handleDragStart}
                   onDrop={handleDrop}
+                  onResizeEnd={handleResizeEnd}
                   dragOverHour={dragOverHour}
                   setDragOverHour={setDragOverHour}
                   isWeekView
