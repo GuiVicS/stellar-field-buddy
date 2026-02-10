@@ -1,20 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useServiceOrders } from '@/hooks/useServiceOrders';
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import AvatarUpload from '@/components/AvatarUpload';
 import CreateTechnicianDialog from '@/components/CreateTechnicianDialog';
+import EditTechnicianDialog from '@/components/EditTechnicianDialog';
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 const TechniciansPage = () => {
   const { data: profiles = [], isLoading: loadingProfiles } = useProfiles();
   const { data: orders = [], isLoading: loadingOrders } = useServiceOrders();
+  const queryClient = useQueryClient();
+
+  const [editTech, setEditTech] = useState<any>(null);
+  const [deleteTech, setDeleteTech] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isLoading = loadingProfiles || loadingOrders;
-
-  // All profiles that have been assigned to at least one order, or just show all profiles
   const technicians = profiles.filter(p => p.active);
+
+  const handleDelete = async () => {
+    if (!deleteTech) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ active: false })
+        .eq('id', deleteTech.id);
+      if (error) throw error;
+      toast.success('Usuário desativado com sucesso');
+      setDeleteTech(null);
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['technicians'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao desativar');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -44,7 +74,28 @@ const TechniciansPage = () => {
           const done = techOrders.filter(o => o.status === 'concluido').length;
           const active = techOrders.some(o => ['em_deslocamento', 'em_atendimento'].includes(o.status));
           return (
-            <Card key={tech.id} className="p-5 shadow-card border-border/50">
+            <Card key={tech.id} className="p-5 shadow-card border-border/50 relative group">
+              {/* Actions menu */}
+              <div className="absolute top-3 right-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setEditTech(tech)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTech(tech)}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Desativar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
               <div className="flex items-center gap-3 mb-4">
                 <AvatarUpload
                   currentUrl={tech.avatar_url}
@@ -78,6 +129,31 @@ const TechniciansPage = () => {
           );
         })}
       </div>
+
+      {/* Edit Dialog */}
+      <EditTechnicianDialog
+        open={!!editTech}
+        onOpenChange={(open) => !open && setEditTech(null)}
+        technician={editTech}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTech} onOpenChange={(open) => !open && setDeleteTech(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja desativar <strong>{deleteTech?.name}</strong>? O usuário não aparecerá mais na lista, mas seus dados serão preservados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? 'Desativando...' : 'Desativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
