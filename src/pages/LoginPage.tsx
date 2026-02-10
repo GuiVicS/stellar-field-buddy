@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import loginBg from '@/assets/login-bg.jpg';
 
 const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
@@ -21,19 +21,29 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
 
+  // Redirect when authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'tecnico') {
+        navigate('/tech', { replace: true });
+      } else {
+        navigate('/manager', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     const success = await login(email, password);
-    setLoading(false);
 
-    if (success) {
-      navigate('/');
-    } else {
+    if (!success) {
+      setLoading(false);
       setError('E-mail ou senha inválidos');
     }
+    // If success, the useEffect above will handle navigation once user state updates
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -192,15 +202,7 @@ const LoginPage = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => { setIsSignup(!isSignup); setError(''); }}
-              className="text-sm text-accent hover:underline"
-            >
-              {isSignup ? 'Já tenho conta → Entrar' : 'Não tem conta? Criar agora'}
-            </button>
-          </div>
+          {/* Signup disabled - users created by admin only */}
         </div>
       </div>
     </div>
