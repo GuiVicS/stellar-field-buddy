@@ -508,7 +508,7 @@ const AgendaView = () => {
         </div>
       )}
 
-      <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder} />
+      <OrderDetailDialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} order={selectedOrder ? (allOrders.find(o => o.id === selectedOrder.id) || selectedOrder) : null} />
       <NewOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} />
     </div>
   );
