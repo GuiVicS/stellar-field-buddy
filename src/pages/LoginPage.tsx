@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import loginBg from '@/assets/login-bg.jpg';
-import appIcon from '@/assets/app-icon.svg';
+import appIcon from '@/assets/app-icon.png';
 
 const LoginPage = () => {
   const { login, isAuthenticated, user } = useAuth();
