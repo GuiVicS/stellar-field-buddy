@@ -19,6 +19,7 @@ import TechnicianAgenda from "./pages/technician/TechnicianAgenda";
 import TechnicianProfile from "./pages/technician/TechnicianProfile";
 import ServiceOrderWizard from "./pages/technician/ServiceOrderWizard";
 import NotFound from "./pages/NotFound";
+import InstallPage from "./pages/InstallPage";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const RootRedirect = () => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<LoginPage />} />
+    <Route path="/install" element={<InstallPage />} />
     <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
 
     {/* Manager routes */}
