@@ -1,12 +1,13 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useServiceOrders } from '@/hooks/useServiceOrders';
+import { useOSAnalytics } from '@/hooks/useOSAnalytics';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Clock, MapPin, Navigation, CheckCircle2, Play, Printer,
-  ChevronRight, AlertTriangle, ExternalLink, ClipboardList,
+  ChevronRight, AlertTriangle, ExternalLink, ClipboardList, Zap, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +19,7 @@ const TechnicianHome = () => {
   const navigate = useNavigate();
   const { data: allOrders = [], isLoading } = useServiceOrders();
   const orders = allOrders.filter(o => o.technician_id === user?.user_id);
+  const analytics = useOSAnalytics(orders as any);
   const done = orders.filter(o => o.status === 'concluido').length;
   const firstName = user?.name?.split(' ')[0] || 'Técnico';
 
@@ -73,6 +75,30 @@ const TechnicianHome = () => {
           </div>
         </Card>
       </div>
+
+      {/* Insights */}
+      {analytics.problemPatterns.length > 0 && (
+        <div className="px-5 mt-5">
+          <Card className="p-4 shadow-card border-border/50">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-priority-urgent" /> Problemas frequentes
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {analytics.problemPatterns.slice(0, 5).map(p => (
+                <span key={p.keyword} className="text-xs bg-accent/10 text-accent px-2.5 py-1 rounded-full font-medium capitalize">
+                  {p.keyword} ({p.count})
+                </span>
+              ))}
+            </div>
+            {analytics.avgResolutionHours && (
+              <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
+                <TrendingUp className="w-3.5 h-3.5" />
+                Tempo médio de resolução: <span className="font-semibold text-foreground">{analytics.avgResolutionHours}h</span>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
 
       <div className="px-5 mt-5 space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
