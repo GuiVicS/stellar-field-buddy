@@ -347,12 +347,12 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
             </PropRow>
 
             <PropRow label="Técnico">
-              <Select value={form.technician_id} onValueChange={(v) => setForm(p => ({ ...p, technician_id: v }))}>
+              <Select value={form.technician_id || '__none__'} onValueChange={(v) => setForm(p => ({ ...p, technician_id: v === '__none__' ? '' : v }))}>
                 <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
                   <SelectValue placeholder="Nenhum atribuído" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-[100]">
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {technicians.map(t => (
                     <SelectItem key={t.id} value={t.user_id}>{t.name}</SelectItem>
                   ))}
@@ -374,12 +374,12 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
             </PropRow>
 
             <PropRow label="Endereço">
-              <Select value={form.address_id} onValueChange={(v) => setForm(p => ({ ...p, address_id: v }))}>
+              <Select value={form.address_id || '__none__'} onValueChange={(v) => setForm(p => ({ ...p, address_id: v === '__none__' ? '' : v }))}>
                 <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
                   <SelectValue placeholder="Nenhum endereço" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-[100]">
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {customerAddresses.map(a => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.label || 'Endereço'} — {a.street}{a.number ? `, ${a.number}` : ''}, {a.city}
@@ -390,12 +390,12 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
             </PropRow>
 
             <PropRow label="Equipamento">
-              <Select value={form.machine_id} onValueChange={(v) => setForm(p => ({ ...p, machine_id: v }))}>
+              <Select value={form.machine_id || '__none__'} onValueChange={(v) => setForm(p => ({ ...p, machine_id: v === '__none__' ? '' : v }))}>
                 <SelectTrigger className="h-8 w-auto min-w-[160px] border-none shadow-none bg-transparent hover:bg-muted/50 px-2">
                   <SelectValue placeholder="Nenhum equipamento" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-[100]">
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {customerMachines.map(m => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.model}{m.serial_number ? ` • ${m.serial_number}` : ''}
