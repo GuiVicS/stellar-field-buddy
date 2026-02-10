@@ -11,8 +11,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 const TechnicianAgenda = () => {
   const { user } = useAuth();
   const { data: allOrders = [], isLoading } = useServiceOrders();
-  const orders = allOrders.filter(o => o.technician_id === user?.user_id);
-  const today = new Date();
+  const [selectedDate, setSelectedDate] = React.useState(new Date());
+
+  const goBack = () => {
+    setSelectedDate(prev => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() - 1);
+      return d;
+    });
+  };
+
+  const goForward = () => {
+    setSelectedDate(prev => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + 1);
+      return d;
+    });
+  };
+
+  const orders = allOrders.filter(o => {
+    if (o.technician_id !== user?.user_id) return false;
+    const osDate = new Date(o.scheduled_start);
+    return (
+      osDate.getFullYear() === selectedDate.getFullYear() &&
+      osDate.getMonth() === selectedDate.getMonth() &&
+      osDate.getDate() === selectedDate.getDate()
+    );
+  });
 
   if (isLoading) {
     return (
@@ -29,13 +54,13 @@ const TechnicianAgenda = () => {
       <div className="px-5 pt-5 pb-3">
         <h1 className="text-xl font-bold">Agenda</h1>
         <div className="flex items-center gap-2 mt-2">
-          <Button variant="outline" size="icon" className="h-8 w-8">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goBack}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <span className="text-sm font-medium capitalize">
-            {today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </span>
-          <Button variant="outline" size="icon" className="h-8 w-8">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={goForward}>
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
