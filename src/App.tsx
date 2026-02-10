@@ -10,7 +10,7 @@ import TechnicianLayout from "./layouts/TechnicianLayout";
 import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import AgendaView from "./pages/manager/AgendaView";
 import KanbanView from "./pages/manager/KanbanView";
-import OrdersListPage from "./pages/manager/OrdersListPage";
+
 import TechniciansPage from "./pages/manager/TechniciansPage";
 import ReportsPage from "./pages/manager/ReportsPage";
 import CustomersPage from "./pages/manager/CustomersPage";
@@ -46,7 +46,7 @@ const AppRoutes = () => (
       <Route index element={<ManagerDashboard />} />
       <Route path="agenda" element={<AgendaView />} />
       <Route path="kanban" element={<KanbanView />} />
-      <Route path="orders" element={<OrdersListPage />} />
+      
       <Route path="customers" element={<CustomersPage />} />
       <Route path="technicians" element={<TechniciansPage />} />
       <Route path="reports" element={<ReportsPage />} />

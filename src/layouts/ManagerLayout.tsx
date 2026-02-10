@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  LayoutDashboard, Calendar, Kanban, ClipboardList, Users, BarChart3,
+  LayoutDashboard, Calendar, Kanban, Users, BarChart3,
   LogOut, Printer, Settings, ChevronLeft, Menu, Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ const navItems = [
   { to: '/manager', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/manager/agenda', icon: Calendar, label: 'Agenda' },
   { to: '/manager/kanban', icon: Kanban, label: 'Kanban' },
-  { to: '/manager/orders', icon: ClipboardList, label: 'Ordens de Serviço' },
   { to: '/manager/customers', icon: Building2, label: 'Clientes' },
   { to: '/manager/technicians', icon: Users, label: 'Técnicos' },
   { to: '/manager/reports', icon: BarChart3, label: 'Relatórios' },
