@@ -4,7 +4,7 @@ import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrder
 import { useChecklist, useToggleChecklistItem } from '@/hooks/useChecklist';
 import { useTimeline } from '@/hooks/useTimeline';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, type OSStatus } from '@/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Select removed — using ClickUp-style advance button
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -90,20 +90,30 @@ const ServiceOrderWizard = () => {
   const canGoNext = currentStep < steps.length;
   const canGoPrev = currentStep > 1;
 
-  const handleFinish = () => {
-    updateOrder.mutate({
-      id: os.id,
-      status: 'concluido' as any,
-      diagnosis,
-      resolution,
-      finished_at: new Date().toISOString(),
-    }, {
-      onSuccess: () => {
-        toast({ title: '✅ OS finalizada com sucesso!' });
-        navigate(-1);
-      },
+  // ClickUp-style status flow (linear progression)
+  const STATUS_FLOW: OSStatus[] = ['a_fazer', 'em_deslocamento', 'em_atendimento', 'aguardando_peca', 'concluido'];
+  const currentStatusIndex = STATUS_FLOW.indexOf(os.status as OSStatus);
+  const nextStatus = currentStatusIndex >= 0 && currentStatusIndex < STATUS_FLOW.length - 1
+    ? STATUS_FLOW[currentStatusIndex + 1]
+    : null;
+  const isFinished = os.status === 'concluido' || os.status === 'cancelado';
+
+  const handleAdvanceStatus = () => {
+    if (!nextStatus) return;
+    const extras: any = { id: os.id, status: nextStatus };
+    if (nextStatus === 'em_deslocamento') extras.actual_departure_at = new Date().toISOString();
+    if (nextStatus === 'em_atendimento') extras.arrived_at = new Date().toISOString();
+    if (nextStatus === 'concluido') {
+      extras.finished_at = new Date().toISOString();
+      extras.diagnosis = diagnosis;
+      extras.resolution = resolution;
+    }
+    updateOrder.mutate(extras, {
+      onSuccess: () => toast({ title: `✅ ${OS_STATUS_LABELS[nextStatus]}` }),
     });
   };
+
+  // handleFinish is now handled by handleAdvanceStatus
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -189,28 +199,43 @@ const ServiceOrderWizard = () => {
           )}
         </div>
         <div className="flex items-center gap-3 text-xs">
-          <Select
-            value={os.status}
-            onValueChange={(value: string) => {
-              updateOrder.mutate({ id: os.id, status: value as any }, {
-                onSuccess: () => toast({ title: '✅ Status atualizado!' }),
-              });
-            }}
-          >
-            <SelectTrigger className="h-7 w-auto gap-1.5 border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground text-xs font-medium px-2.5 [&>svg]:text-primary-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.entries(OS_STATUS_LABELS) as [OSStatus, string][]).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  <span className="flex items-center gap-2">
-                    <span className={cn("w-2 h-2 rounded-full", OS_STATUS_COLORS[key].split(' ')[0])} />
-                    {label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* ClickUp-style status advance button */}
+          <div className="flex items-center rounded-lg overflow-hidden">
+            <span className={cn(
+              "px-3 py-1.5 text-xs font-bold uppercase tracking-wide",
+              OS_STATUS_COLORS[os.status as OSStatus] || 'bg-muted text-muted-foreground'
+            )}>
+              {OS_STATUS_LABELS[os.status as OSStatus] || os.status}
+            </span>
+            {nextStatus && !isFinished && (
+              <button
+                onClick={handleAdvanceStatus}
+                disabled={updateOrder.isPending}
+                className={cn(
+                  "px-2 py-1.5 text-white font-bold transition-opacity hover:opacity-80",
+                  OS_STATUS_COLORS[nextStatus]?.split(' ')[0] || 'bg-primary'
+                )}
+                title={`Avançar para: ${OS_STATUS_LABELS[nextStatus]}`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+            {nextStatus === 'concluido' && !isFinished && (
+              <button
+                onClick={handleAdvanceStatus}
+                disabled={updateOrder.isPending}
+                className="px-2 py-1.5 bg-status-done text-white font-bold transition-opacity hover:opacity-80"
+                title="Concluir OS"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+            )}
+            {isFinished && (
+              <span className="px-2 py-1.5 bg-status-done/20 text-status-done">
+                <CheckCircle2 className="w-4 h-4" />
+              </span>
+            )}
+          </div>
           {os.machine && <span className="flex items-center gap-1"><Printer className="w-3 h-3" />{os.machine.model}</span>}
         </div>
       </div>
@@ -482,12 +507,12 @@ const ServiceOrderWizard = () => {
               </div>
             </Card>
             <Button
-              onClick={handleFinish}
-              disabled={updateOrder.isPending}
+              onClick={handleAdvanceStatus}
+              disabled={updateOrder.isPending || isFinished}
               className="w-full h-12 brand-gradient text-primary-foreground font-semibold text-base"
             >
               <CheckCircle2 className="w-5 h-5 mr-2" />
-              {updateOrder.isPending ? 'Finalizando...' : 'Finalizar OS'}
+              {updateOrder.isPending ? 'Finalizando...' : isFinished ? 'OS Finalizada' : 'Finalizar OS'}
             </Button>
           </div>
         )}
