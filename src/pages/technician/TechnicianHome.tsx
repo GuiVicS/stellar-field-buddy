@@ -1,23 +1,28 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useServiceOrders } from '@/hooks/useServiceOrders';
+import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { useOSAnalytics } from '@/hooks/useOSAnalytics';
-import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types';
+import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, type OSStatus } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Clock, MapPin, Navigation, CheckCircle2, Play, Printer,
-  ChevronRight, AlertTriangle, ExternalLink, ClipboardList, Zap, TrendingUp,
+  ChevronRight, ChevronLeft, AlertTriangle, ExternalLink, ClipboardList, Zap, TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import AvatarUpload from '@/components/AvatarUpload';
+import { useToast } from '@/hooks/use-toast';
+
+const STATUS_FLOW: OSStatus[] = ['a_fazer', 'em_deslocamento', 'em_atendimento', 'aguardando_peca', 'concluido'];
 
 const TechnicianHome = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: allOrders = [], isLoading } = useServiceOrders();
+  const updateOrder = useUpdateServiceOrder();
+  const { toast } = useToast();
   const orders = allOrders.filter(o => o.technician_id === user?.user_id);
   const analytics = useOSAnalytics(orders as any);
   const done = orders.filter(o => o.status === 'concluido').length;
@@ -134,10 +139,49 @@ const TechnicianHome = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-mono font-semibold text-accent">{os.code}</span>
-                    <span className={cn("status-badge text-[10px]", OS_STATUS_COLORS[os.status])}>
-                      {OS_STATUS_LABELS[os.status]}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] font-mono font-semibold text-accent">{os.code}</span>
+                    </div>
+                    {/* ClickUp-style status with prev/next */}
+                    {(() => {
+                      const idx = STATUS_FLOW.indexOf(os.status as OSStatus);
+                      const prev = idx > 0 ? STATUS_FLOW[idx - 1] : null;
+                      const next = idx >= 0 && idx < STATUS_FLOW.length - 1 ? STATUS_FLOW[idx + 1] : null;
+                      const isFinal = os.status === 'concluido' || os.status === 'cancelado';
+                      const handleChange = (newStatus: OSStatus, e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        const extras: any = { id: os.id, status: newStatus };
+                        if (newStatus === 'em_deslocamento') extras.actual_departure_at = new Date().toISOString();
+                        if (newStatus === 'em_atendimento') extras.arrived_at = new Date().toISOString();
+                        if (newStatus === 'concluido') extras.finished_at = new Date().toISOString();
+                        updateOrder.mutate(extras, {
+                          onSuccess: () => toast({ title: `✅ ${OS_STATUS_LABELS[newStatus]}` }),
+                        });
+                      };
+                      return (
+                        <div className="flex items-center rounded-md overflow-hidden h-6">
+                          {prev && !isFinal && (
+                            <button
+                              onClick={(e) => handleChange(prev, e)}
+                              className="px-1 h-full bg-muted hover:bg-muted-foreground/20 transition-colors"
+                            >
+                              <ChevronLeft className="w-3 h-3 text-muted-foreground" />
+                            </button>
+                          )}
+                          <span className={cn("px-2 h-full flex items-center text-[10px] font-bold uppercase whitespace-nowrap", OS_STATUS_COLORS[os.status as OSStatus])}>
+                            {OS_STATUS_LABELS[os.status as OSStatus]}
+                          </span>
+                          {next && !isFinal && (
+                            <button
+                              onClick={(e) => handleChange(next, e)}
+                              className={cn("px-1 h-full hover:opacity-80 transition-opacity", OS_STATUS_COLORS[next]?.split(' ')[0] || 'bg-primary')}
+                            >
+                              <ChevronRight className="w-3 h-3 text-white" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="text-sm font-semibold truncate">{os.customer?.name}</div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
