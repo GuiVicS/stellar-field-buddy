@@ -44,7 +44,8 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
     type: '' as DBOSType | '',
     priority: 'media' as DBPriority,
     scheduled_date: new Date().toISOString().split('T')[0],
-    scheduled_time: '08:00',
+    scheduled_time_start: '08:00',
+    scheduled_time_end: '09:00',
     problem_description: '',
   });
 
@@ -57,8 +58,9 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
   const handleSubmit = () => {
     if (!canSubmit) return;
 
-    const scheduledStart = new Date(`${form.scheduled_date}T${form.scheduled_time}:00`);
-    const scheduledEnd = new Date(scheduledStart.getTime() + 60 * 60 * 1000);
+    const scheduledStart = new Date(`${form.scheduled_date}T${form.scheduled_time_start}:00`);
+    const scheduledEnd = new Date(`${form.scheduled_date}T${form.scheduled_time_end}:00`);
+    const durationMin = Math.max(30, Math.round((scheduledEnd.getTime() - scheduledStart.getTime()) / 60000));
 
     createOrder.mutate({
       customer_id: form.customer_id,
@@ -66,7 +68,7 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
       priority: form.priority,
       scheduled_start: scheduledStart.toISOString(),
       scheduled_end: scheduledEnd.toISOString(),
-      estimated_duration_min: 60,
+      estimated_duration_min: durationMin,
       problem_description: form.problem_description,
       technician_id: form.technician_id || null,
       created_by: user?.user_id || null,
@@ -82,7 +84,8 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
           type: '',
           priority: 'media',
           scheduled_date: new Date().toISOString().split('T')[0],
-          scheduled_time: '08:00',
+          scheduled_time_start: '08:00',
+          scheduled_time_end: '09:00',
           problem_description: '',
         });
         onOpenChange(false);
@@ -180,8 +183,8 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
             </div>
           </div>
 
-          {/* Data e Hora */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Data e Período */}
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Data</Label>
               <Input
@@ -192,11 +195,20 @@ const NewOrderDialog = ({ open, onOpenChange }: NewOrderDialogProps) => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Horário</Label>
+              <Label className="text-sm font-medium">Início</Label>
               <Input
                 type="time"
-                value={form.scheduled_time}
-                onChange={e => update('scheduled_time', e.target.value)}
+                value={form.scheduled_time_start}
+                onChange={e => update('scheduled_time_start', e.target.value)}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Fim</Label>
+              <Input
+                type="time"
+                value={form.scheduled_time_end}
+                onChange={e => update('scheduled_time_end', e.target.value)}
                 className="h-11"
               />
             </div>

@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { OS_STATUS_LABELS, OS_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, OS_TYPE_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
-import { Clock, MapPin, Phone, Printer, User, FileText, Calendar, Wrench } from 'lucide-react';
+import { Clock, MapPin, Phone, Printer, User, FileText, Calendar, Wrench, Camera, Mic, X, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 interface OrderDetailDialogProps {
   open: boolean;
@@ -27,6 +32,63 @@ const InfoRow = ({ icon: Icon, label, value }: { icon: React.ElementType; label:
 };
 
 const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: evidences = [] } = useQuery({
+    queryKey: ['evidences', order?.id],
+    queryFn: async () => {
+      if (!order?.id) return [];
+      const { data, error } = await supabase
+        .from('evidences')
+        .select('*')
+        .eq('os_id', order.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!order?.id && open,
+  });
+
+  const handleFileUpload = async (file: File, kind: 'photo' | 'audio') => {
+    if (!order?.id) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${order.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('evidences')
+        .upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('evidences')
+        .getPublicUrl(path);
+
+      const { error: insertError } = await supabase
+        .from('evidences')
+        .insert({
+          os_id: order.id,
+          kind,
+          file_url: urlData.publicUrl,
+          created_by: user?.user_id || null,
+        });
+      if (insertError) throw insertError;
+
+      qc.invalidateQueries({ queryKey: ['evidences', order.id] });
+      toast({ title: kind === 'photo' ? '📷 Foto anexada!' : '🎙️ Áudio anexado!' });
+    } catch (e: any) {
+      toast({ title: 'Erro ao enviar arquivo', description: e.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (!order) return null;
 
   const scheduledStart = new Date(order.scheduled_start);
@@ -39,6 +101,9 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
   const addressStr = order.address
     ? [order.address.street, order.address.number, order.address.city, order.address.state].filter(Boolean).join(', ')
     : null;
+
+  const photos = evidences.filter((e: any) => e.kind === 'photo');
+  const audios = evidences.filter((e: any) => e.kind === 'audio');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,7 +128,7 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
           <div className="space-y-3">
             <InfoRow icon={Wrench} label="Tipo de serviço" value={OS_TYPE_LABELS[order.type]} />
             <InfoRow icon={Calendar} label="Data" value={date} />
-            <InfoRow icon={Clock} label="Horário" value={endTime ? `${time} – ${endTime}` : time} />
+            <InfoRow icon={Clock} label="Período" value={endTime ? `${time} – ${endTime}` : time} />
             {order.estimated_duration_min && (
               <InfoRow icon={Clock} label="Duração estimada" value={`${order.estimated_duration_min} minutos`} />
             )}
@@ -165,6 +230,90 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
               </div>
             </>
           )}
+
+          {/* Anexos */}
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Anexos</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploading}
+                  className="text-xs"
+                >
+                  {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
+                  Foto
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => audioInputRef.current?.click()}
+                  disabled={uploading}
+                  className="text-xs"
+                >
+                  {uploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Mic className="w-3 h-3 mr-1" />}
+                  Áudio
+                </Button>
+              </div>
+            </div>
+
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, 'photo');
+                e.target.value = '';
+              }}
+            />
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file, 'audio');
+                e.target.value = '';
+              }}
+            />
+
+            {/* Photos grid */}
+            {photos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((ev: any) => (
+                  <a key={ev.id} href={ev.file_url} target="_blank" rel="noopener noreferrer" className="block">
+                    <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                      <img src={ev.file_url} alt="Evidência" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Audios list */}
+            {audios.length > 0 && (
+              <div className="space-y-2">
+                {audios.map((ev: any) => (
+                  <div key={ev.id} className="flex items-center gap-3 bg-muted/50 rounded-lg p-2">
+                    <Mic className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <audio controls className="flex-1 h-8" src={ev.file_url} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {photos.length === 0 && audios.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-3">
+                Nenhum anexo adicionado
+              </p>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
