@@ -224,6 +224,21 @@ const DayColumn: React.FC<{
 
   const layoutEvents = useMemo(() => computeOverlapLayout(dayOrders), [dayOrders]);
 
+  // Compute busy hours
+  const busyHours = useMemo(() => {
+    const set = new Set<number>();
+    dayOrders.forEach(os => {
+      const start = new Date(os.scheduled_start);
+      const end = os.scheduled_end
+        ? new Date(os.scheduled_end)
+        : new Date(start.getTime() + (os.estimated_duration_min || 60) * 60000);
+      for (let h = start.getHours(); h < end.getHours() + (end.getMinutes() > 0 ? 1 : 0); h++) {
+        set.add(h);
+      }
+    });
+    return set;
+  }, [dayOrders]);
+
   const isToday = isSameDay(date, new Date());
   const PADDING = 4; // px gap between side-by-side events
   const LEFT_MARGIN = 4; // px from left edge
@@ -249,19 +264,29 @@ const DayColumn: React.FC<{
       )}
       <div className="relative" style={{ height: hours.length * HOUR_HEIGHT }}>
         {/* Hour grid lines */}
-        {hours.map((hour, i) => (
-          <div
-            key={hour}
-            className={cn(
-              "absolute left-0 right-0 border-t border-border/30",
-              dragOverHour === hour && "bg-accent/10"
-            )}
-            style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-            onDragOver={(e) => { e.preventDefault(); setDragOverHour(hour); }}
-            onDragLeave={() => setDragOverHour(null)}
-            onDrop={(e) => onDrop(e, hour)}
-          />
-        ))}
+        {hours.map((hour, i) => {
+          const isFree = !busyHours.has(hour);
+          return (
+            <div
+              key={hour}
+              className={cn(
+                "absolute left-0 right-0 border-t border-border/30 group/slot",
+                dragOverHour === hour && "bg-accent/10",
+                isFree && "hover:bg-green-500/5"
+              )}
+              style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverHour(hour); }}
+              onDragLeave={() => setDragOverHour(null)}
+              onDrop={(e) => onDrop(e, hour)}
+            >
+              {isFree && (
+                <div className="absolute inset-y-0 right-1 flex items-center opacity-0 group-hover/slot:opacity-100 transition-opacity pointer-events-none">
+                  <span className="text-[9px] font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded">Livre</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Current time indicator */}
         {isToday && (() => {
