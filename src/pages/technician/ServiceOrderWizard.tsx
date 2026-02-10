@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { useChecklist, useToggleChecklistItem } from '@/hooks/useChecklist';
@@ -10,12 +10,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import {
-  ArrowLeft, MapPin, Phone, Clock, Printer, User, Camera, Mic, Plus,
+  ArrowLeft, MapPin, Phone, Clock, Printer, User, Camera, Plus,
   CheckCircle2, FileText, Package, PenTool, ChevronRight, ChevronLeft,
+  Trash2, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const steps = [
   { id: 1, label: 'Resumo', icon: FileText },
@@ -30,18 +34,45 @@ const ServiceOrderWizard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: allOrders = [], isLoading } = useServiceOrders();
   const os = allOrders.find(o => o.id === id);
   const { data: checklist = [] } = useChecklist(id);
   const { data: timeline = [] } = useTimeline(id);
   const toggleItem = useToggleChecklistItem();
   const updateOrder = useUpdateServiceOrder();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [diagnosis, setDiagnosis] = useState('');
   const [resolution, setResolution] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [partName, setPartName] = useState('');
+  const [partCost, setPartCost] = useState('');
 
-  // Set initial values when OS loads
+  const { data: evidences = [] } = useQuery({
+    queryKey: ['evidences', id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase.from('evidences').select('*').eq('os_id', id).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  const { data: parts = [] } = useQuery({
+    queryKey: ['parts', id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase.from('parts_used').select('*').eq('os_id', id).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
   React.useEffect(() => {
     if (os) {
       setDiagnosis(os.diagnosis || '');
@@ -71,6 +102,64 @@ const ServiceOrderWizard = () => {
         navigate(-1);
       },
     });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !id) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const ext = file.name.split('.').pop();
+        const path = `${id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('evidences').upload(path, file);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('evidences').getPublicUrl(path);
+        const kind = file.type.startsWith('image/') ? 'photo' : file.type.startsWith('audio/') ? 'audio' : 'file';
+        const { error: insertError } = await supabase.from('evidences').insert({
+          os_id: id,
+          file_url: urlData.publicUrl,
+          kind,
+          created_by: user?.user_id || null,
+        });
+        if (insertError) throw insertError;
+      }
+      qc.invalidateQueries({ queryKey: ['evidences', id] });
+      toast({ title: '📎 Evidência adicionada!' });
+    } catch (err: any) {
+      toast({ title: 'Erro no upload', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteEvidence = async (evId: string) => {
+    await supabase.from('evidences').delete().eq('id', evId);
+    qc.invalidateQueries({ queryKey: ['evidences', id] });
+  };
+
+  const handleAddPart = async () => {
+    if (!partName.trim() || !id) return;
+    const costValue = partCost ? parseFloat(partCost.replace(',', '.')) : null;
+    const { error } = await supabase.from('parts_used').insert({
+      os_id: id,
+      part_name: partName.trim(),
+      cost: costValue,
+    } as any);
+    if (error) {
+      toast({ title: 'Erro ao adicionar peça', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setPartName('');
+    setPartCost('');
+    qc.invalidateQueries({ queryKey: ['parts', id] });
+    toast({ title: '✅ Peça adicionada!' });
+  };
+
+  const handleDeletePart = async (partId: string) => {
+    await supabase.from('parts_used').delete().eq('id', partId);
+    qc.invalidateQueries({ queryKey: ['parts', id] });
   };
 
   return (
@@ -112,6 +201,7 @@ const ServiceOrderWizard = () => {
       </div>
 
       <div className="px-5 pb-32">
+        {/* Step 1: Summary */}
         {currentStep === 1 && (
           <div className="space-y-4 animate-fade-in">
             <Card className="p-4 shadow-card border-border/50">
@@ -170,6 +260,7 @@ const ServiceOrderWizard = () => {
           </div>
         )}
 
+        {/* Step 2: Diagnosis */}
         {currentStep === 2 && (
           <div className="space-y-4 animate-fade-in">
             <Card className="p-4 shadow-card border-border/50">
@@ -193,14 +284,10 @@ const ServiceOrderWizard = () => {
           </div>
         )}
 
+        {/* Step 3: Checklist */}
         {currentStep === 3 && (
           <div className="space-y-3 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Checklist de Verificação</h3>
-              <Button variant="outline" size="sm" className="h-8 text-xs">
-                <Plus className="w-3 h-3 mr-1" /> Item
-              </Button>
-            </div>
+            <h3 className="text-sm font-semibold">Checklist de Verificação</h3>
             {checklist.length === 0 && (
               <Card className="p-6 text-center text-muted-foreground text-sm">
                 Nenhum item no checklist
@@ -234,42 +321,118 @@ const ServiceOrderWizard = () => {
           </div>
         )}
 
+        {/* Step 4: Evidences — real upload */}
         {currentStep === 4 && (
           <div className="space-y-4 animate-fade-in">
             <h3 className="text-sm font-semibold">Evidências</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <button className="mobile-action-btn bg-accent/10 text-accent border border-accent/20 rounded-xl">
-                <Camera className="w-6 h-6" />
-                <span>Tirar Foto</span>
-              </button>
-              <button className="mobile-action-btn bg-destructive/10 text-destructive border border-destructive/20 rounded-xl">
-                <Mic className="w-6 h-6" />
-                <span>Gravar Áudio</span>
-              </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,audio/*,.pdf"
+              multiple
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            <Button
+              variant="outline"
+              className="w-full h-12 border-dashed"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</>
+              ) : (
+                <><Camera className="w-4 h-4 mr-2" /> Adicionar foto ou arquivo</>
+              )}
+            </Button>
+
+            {evidences.length === 0 && !uploading && (
+              <Card className="p-6 shadow-card border-border/50 flex flex-col items-center justify-center text-muted-foreground">
+                <Camera className="w-10 h-10 mb-2 opacity-30" />
+                <p className="text-sm">Nenhuma evidência adicionada</p>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-3 gap-2">
+              {evidences.map(ev => (
+                <div key={ev.id} className="relative group rounded-lg overflow-hidden border border-border/50">
+                  {ev.kind === 'photo' ? (
+                    <img src={ev.file_url} alt="" className="w-full h-24 object-cover" />
+                  ) : (
+                    <div className="w-full h-24 bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                      {ev.kind === 'audio' ? '🎵 Áudio' : '📎 Arquivo'}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleDeleteEvidence(ev.id)}
+                    className="absolute top-1 right-1 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
-            <Card className="p-8 shadow-card border-border/50 flex flex-col items-center justify-center text-muted-foreground">
-              <Camera className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm">Nenhuma evidência adicionada</p>
-              <p className="text-xs opacity-60">Capture fotos ou grave áudios</p>
-            </Card>
           </div>
         )}
 
+        {/* Step 5: Parts — simple name + cost form */}
         {currentStep === 5 && (
           <div className="space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Peças Utilizadas</h3>
-              <Button variant="outline" size="sm" className="h-8 text-xs">
-                <Plus className="w-3 h-3 mr-1" /> Peça
+            <h3 className="text-sm font-semibold">Peças Utilizadas</h3>
+
+            <Card className="p-4 shadow-card border-border/50 space-y-3">
+              <Input
+                placeholder="Nome da peça"
+                value={partName}
+                onChange={e => setPartName(e.target.value)}
+                className="h-10 text-sm"
+              />
+              <Input
+                placeholder="Custo (R$)"
+                value={partCost}
+                onChange={e => setPartCost(e.target.value)}
+                type="text"
+                inputMode="decimal"
+                className="h-10 text-sm"
+              />
+              <Button
+                onClick={handleAddPart}
+                disabled={!partName.trim()}
+                className="w-full h-10"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-1" /> Adicionar Peça
               </Button>
-            </div>
-            <Card className="p-8 shadow-card border-border/50 flex flex-col items-center justify-center text-muted-foreground">
-              <Package className="w-10 h-10 mb-2 opacity-30" />
-              <p className="text-sm">Nenhuma peça registrada</p>
             </Card>
+
+            {parts.length === 0 && (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                Nenhuma peça registrada ainda
+              </div>
+            )}
+
+            {parts.map((p) => (
+              <Card key={p.id} className="p-3 shadow-card border-border/50 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">{p.part_name}</div>
+                  {(p as any).cost != null && (
+                    <div className="text-xs text-muted-foreground">
+                      R$ {Number((p as any).cost).toFixed(2).replace('.', ',')}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeletePart(p.id)}
+                  className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </Card>
+            ))}
           </div>
         )}
 
+        {/* Step 6: Signature */}
         {currentStep === 6 && (
           <div className="space-y-4 animate-fade-in">
             <Card className="p-4 shadow-card border-border/50">
