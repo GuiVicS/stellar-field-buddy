@@ -14,7 +14,7 @@ const navItems = [
   { to: '/manager/agenda', icon: Calendar, label: 'Agenda' },
   { to: '/manager/kanban', icon: Kanban, label: 'Kanban' },
   { to: '/manager/customers', icon: Building2, label: 'Clientes' },
-  { to: '/manager/technicians', icon: Users, label: 'Técnicos' },
+  { to: '/manager/technicians', icon: Users, label: 'Usuários' },
   { to: '/manager/reports', icon: BarChart3, label: 'Relatórios' },
 ];
 
