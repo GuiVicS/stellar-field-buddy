@@ -1,6 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { NavLink, Outlet } from 'react-router-dom';
 import { Home, Calendar, ClipboardList, User, Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import NotificationBell from '@/components/NotificationBell';
@@ -19,8 +18,8 @@ const TechnicianLayout = () => {
     <div className="flex flex-col h-screen bg-background">
       {/* Status bar */}
       <div className={cn(
-        "flex items-center justify-between px-4 py-1 text-[10px] font-semibold uppercase tracking-wider",
-        isOnline ? "bg-status-done text-status-done-foreground" : "bg-status-waiting text-status-waiting-foreground"
+        "flex items-center justify-between px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider",
+        isOnline ? "bg-status-done/10 text-status-done" : "bg-status-waiting/10 text-status-waiting"
       )}>
         <div className="flex items-center gap-1.5">
           {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
@@ -42,13 +41,13 @@ const TechnicianLayout = () => {
             to={item.to}
             end={item.end}
             className={({ isActive }) => cn(
-              "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-[11px] font-medium transition-colors min-w-[56px]",
+              "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors min-w-[56px]",
               isActive
-                ? "text-accent"
+                ? "text-primary"
                 : "text-muted-foreground"
             )}
           >
-            <item.icon className={cn("w-5 h-5")} />
+            <item.icon className="w-5 h-5" />
             <span>{item.label}</span>
           </NavLink>
         ))}

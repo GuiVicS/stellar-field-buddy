@@ -10,42 +10,12 @@ import NewOrderDialog from '@/components/NewOrderDialog';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
-const columns: { status: OSStatus; label: string; icon: React.ReactNode; gradient: string; dotColor: string }[] = [
-  {
-    status: 'a_fazer',
-    label: 'A Fazer',
-    icon: <Package className="w-4 h-4" />,
-    gradient: 'from-amber-500/10 to-amber-500/5',
-    dotColor: 'bg-amber-500',
-  },
-  {
-    status: 'em_deslocamento',
-    label: 'Em Deslocamento',
-    icon: <Truck className="w-4 h-4" />,
-    gradient: 'from-orange-500/10 to-orange-500/5',
-    dotColor: 'bg-orange-500',
-  },
-  {
-    status: 'em_atendimento',
-    label: 'Em Atendimento',
-    icon: <Wrench className="w-4 h-4" />,
-    gradient: 'from-violet-500/10 to-violet-500/5',
-    dotColor: 'bg-violet-500',
-  },
-  {
-    status: 'aguardando_peca',
-    label: 'Aguardando Peça',
-    icon: <AlertCircle className="w-4 h-4" />,
-    gradient: 'from-rose-500/10 to-rose-500/5',
-    dotColor: 'bg-rose-500',
-  },
-  {
-    status: 'concluido',
-    label: 'Concluído',
-    icon: <CheckCircle2 className="w-4 h-4" />,
-    gradient: 'from-emerald-500/10 to-emerald-500/5',
-    dotColor: 'bg-emerald-500',
-  },
+const columns: { status: OSStatus; label: string; icon: React.ReactNode; dotColor: string }[] = [
+  { status: 'a_fazer', label: 'A Fazer', icon: <Package className="w-4 h-4" />, dotColor: 'bg-status-pending' },
+  { status: 'em_deslocamento', label: 'Em Deslocamento', icon: <Truck className="w-4 h-4" />, dotColor: 'bg-status-transit' },
+  { status: 'em_atendimento', label: 'Em Atendimento', icon: <Wrench className="w-4 h-4" />, dotColor: 'bg-status-active' },
+  { status: 'aguardando_peca', label: 'Aguardando Peça', icon: <AlertCircle className="w-4 h-4" />, dotColor: 'bg-status-waiting' },
+  { status: 'concluido', label: 'Concluído', icon: <CheckCircle2 className="w-4 h-4" />, dotColor: 'bg-status-done' },
 ];
 
 const KanbanView = () => {
@@ -106,8 +76,7 @@ const KanbanView = () => {
             >
               {/* Column header */}
               <div className={cn(
-                "rounded-t-xl px-4 py-3 flex items-center justify-between bg-gradient-to-b transition-all",
-                col.gradient,
+                "rounded-t-xl px-4 py-3 flex items-center justify-between bg-muted/50 transition-all",
                 isDragOver && "ring-2 ring-primary/30"
               )}>
                 <div className="flex items-center gap-2">
