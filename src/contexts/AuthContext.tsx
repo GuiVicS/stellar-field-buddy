@@ -19,22 +19,16 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function fetchUserProfile(userId: string): Promise<AuthUser | null> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
+  // Run both queries in parallel for speed
+  const [profileRes, rolesRes] = await Promise.all([
+    supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('user_roles').select('role').eq('user_id', userId).limit(1),
+  ]);
 
-  if (!profile) return null;
+  if (!profileRes.data) return null;
 
-  const { data: roles } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId);
-
-  const role = roles?.[0]?.role || 'tecnico';
-
-  return { ...profile, role: role as AuthUser['role'] };
+  const role = rolesRes.data?.[0]?.role || 'tecnico';
+  return { ...profileRes.data, role: role as AuthUser['role'] };
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
