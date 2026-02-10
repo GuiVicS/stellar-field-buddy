@@ -20,6 +20,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
+  const [shaking, setShaking] = useState(false);
 
   // Redirect when authenticated
   React.useEffect(() => {
@@ -42,6 +43,8 @@ const LoginPage = () => {
     if (!success) {
       setLoading(false);
       setError('E-mail ou senha inválidos');
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
     }
     // If success, the useEffect above will handle navigation once user state updates
   };
@@ -130,7 +133,7 @@ const LoginPage = () => {
             {isSignup ? 'Preencha os dados para criar sua conta' : 'Entre com suas credenciais para continuar'}
           </p>
 
-          <form onSubmit={isSignup ? handleSignup : handleLogin} className="space-y-5">
+          <form onSubmit={isSignup ? handleSignup : handleLogin} className={`space-y-5 ${shaking ? 'animate-shake' : ''}`}>
             {isSignup && (
               <div className="space-y-2">
                 <Label htmlFor="name">Nome completo</Label>
