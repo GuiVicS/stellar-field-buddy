@@ -117,7 +117,20 @@ const ServiceOrderWizard = () => {
       extras.resolution = resolution;
     }
     updateOrder.mutate(extras, {
-      onSuccess: () => toast({ title: `✅ ${OS_STATUS_LABELS[nextStatus]}` }),
+      onSuccess: async () => {
+        toast({ title: `✅ ${OS_STATUS_LABELS[nextStatus]}` });
+        // Enviar pesquisa de satisfação ao concluir
+        if (nextStatus === 'concluido') {
+          try {
+            await supabase.functions.invoke('send-feedback', {
+              body: { os_id: os.id },
+            });
+            toast({ title: '📨 Pesquisa de satisfação enviada ao cliente!' });
+          } catch {
+            // Silently fail — feedback is non-blocking
+          }
+        }
+      },
     });
   };
 
