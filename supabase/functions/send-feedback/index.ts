@@ -94,7 +94,11 @@ serve(async (req) => {
       settingsMap.evolution_instance
     ) {
       try {
-        const phone = customerPhone.replace(/\D/g, "");
+        let phone = customerPhone.replace(/\D/g, "");
+        // Ensure country code 55 (Brazil) is present
+        if (!phone.startsWith("55")) {
+          phone = "55" + phone;
+        }
         const message = `Olá ${customerName}! 😊\n\nSeu atendimento referente à OS *${os.code}* foi concluído.\n\nGostaríamos de saber como foi sua experiência! Por favor, avalie nosso serviço clicando no link abaixo:\n\n👉 ${feedbackUrl}\n\nObrigado pela sua confiança!`;
 
         const evolutionUrl = settingsMap.evolution_api_url.replace(/\/$/, "");
