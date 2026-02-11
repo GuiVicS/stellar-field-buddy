@@ -13,6 +13,7 @@ import KanbanView from "./pages/manager/KanbanView";
 
 import TechniciansPage from "./pages/manager/TechniciansPage";
 import ReportsPage from "./pages/manager/ReportsPage";
+import SettingsPage from "./pages/manager/SettingsPage";
 import CustomersPage from "./pages/manager/CustomersPage";
 import TechnicianHome from "./pages/technician/TechnicianHome";
 import TechnicianAgenda from "./pages/technician/TechnicianAgenda";
@@ -55,6 +56,7 @@ const AppRoutes = () => (
       <Route path="customers" element={<CustomersPage />} />
       <Route path="technicians" element={<TechniciansPage />} />
       <Route path="reports" element={<ReportsPage />} />
+      <Route path="settings" element={<SettingsPage />} />
     </Route>
 
     {/* Technician routes */}
