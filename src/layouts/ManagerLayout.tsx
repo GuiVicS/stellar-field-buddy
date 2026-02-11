@@ -122,7 +122,7 @@ const ManagerLayout = () => {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8">
+            <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8" onClick={() => navigate('/manager/settings')}>
               <Settings className="w-4 h-4" />
             </Button>
           </div>
