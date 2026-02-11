@@ -176,6 +176,44 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          os_id: string
+          rating: number | null
+          submitted_at: string | null
+          token: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          os_id: string
+          rating?: number | null
+          submitted_at?: string | null
+          token?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          os_id?: string
+          rating?: number | null
+          submitted_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_os_id_fkey"
+            columns: ["os_id"]
+            isOneToOne: false
+            referencedRelation: "service_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machines: {
         Row: {
           created_at: string | null
@@ -459,6 +497,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
       }
       timeline_comments: {
         Row: {
