@@ -5,15 +5,17 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-# Build with placeholder env vars (will be overridden at runtime via nginx)
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_PUBLISHABLE_KEY
-ARG VITE_SUPABASE_PROJECT_ID
+# Build with PLACEHOLDER values (will be replaced at runtime)
+ENV VITE_SUPABASE_URL=__RUNTIME_SUPABASE_URL__
+ENV VITE_SUPABASE_PUBLISHABLE_KEY=__RUNTIME_SUPABASE_KEY__
+ENV VITE_SUPABASE_PROJECT_ID=stellar-print
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
