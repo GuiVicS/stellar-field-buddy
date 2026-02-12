@@ -1,0 +1,126 @@
+version: "3.8"
+
+services:
+  # ========== SUPABASE CORE ==========
+  supabase-db:
+    image: supabase/postgres:15.6.1.143
+    container_name: supabase-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sua-senha-forte-aqui}
+      POSTGRES_DB: postgres
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+
+  supabase-auth:
+    image: supabase/gotrue:v2.158.1
+    container_name: supabase-auth
+    restart: unless-stopped
+    depends_on:
+      - supabase-db
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-sua-senha-forte-aqui}@supabase-db:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_URI_ALLOW_LIST: ""
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-com-pelo-menos-32-caracteres}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+
+  supabase-rest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: supabase-rest
+    restart: unless-stopped
+    depends_on:
+      - supabase-db
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-sua-senha-forte-aqui}@supabase-db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-com-pelo-menos-32-caracteres}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+
+  supabase-storage:
+    image: supabase/storage-api:v1.0.6
+    container_name: supabase-storage
+    restart: unless-stopped
+    depends_on:
+      - supabase-db
+      - supabase-rest
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://supabase-rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-com-pelo-menos-32-caracteres}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-sua-senha-forte-aqui}@supabase-db:5432/postgres
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      FILE_SIZE_LIMIT: 52428800
+    volumes:
+      - supabase-storage-data:/var/lib/storage
+
+  supabase-kong:
+    image: kong:2.8.1
+    container_name: supabase-kong
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+    volumes:
+      - ./kong.yml:/var/lib/kong/kong.yml
+    depends_on:
+      - supabase-auth
+      - supabase-rest
+      - supabase-storage
+
+  # ========== SUPABASE EDGE FUNCTIONS ==========
+  supabase-edge-functions:
+    image: supabase/edge-runtime:v1.58.3
+    container_name: supabase-edge-functions
+    restart: unless-stopped
+    depends_on:
+      - supabase-db
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-com-pelo-menos-32-caracteres}
+      SUPABASE_URL: http://supabase-kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_DB_URL: postgres://postgres:${POSTGRES_PASSWORD:-sua-senha-forte-aqui}@supabase-db:5432/postgres
+    volumes:
+      - ./supabase/functions:/home/deno/functions
+    command:
+      - start
+      - --main-service
+      - /home/deno/functions/main
+
+  # ========== FRONTEND APP ==========
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
+        VITE_SUPABASE_PROJECT_ID: stellar-print
+    container_name: stellar-print-app
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - supabase-kong
+
+volumes:
+  supabase-db-data:
+  supabase-storage-data:
