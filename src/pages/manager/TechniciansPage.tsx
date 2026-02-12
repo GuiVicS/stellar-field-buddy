@@ -10,7 +10,7 @@ import AvatarUpload from '@/components/AvatarUpload';
 import CreateTechnicianDialog from '@/components/CreateTechnicianDialog';
 import EditTechnicianDialog from '@/components/EditTechnicianDialog';
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 

@@ -5,9 +5,9 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-# Build with PLACEHOLDER values (will be replaced at runtime)
-ENV VITE_SUPABASE_URL=__RUNTIME_SUPABASE_URL__
-ENV VITE_SUPABASE_PUBLISHABLE_KEY=__RUNTIME_SUPABASE_KEY__
+# Build with placeholder values — they'll be overridden at runtime by config.js
+ENV VITE_SUPABASE_URL=__PLACEHOLDER_URL__
+ENV VITE_SUPABASE_PUBLISHABLE_KEY=__PLACEHOLDER_KEY__
 ENV VITE_SUPABASE_PROJECT_ID=stellar-print
 RUN npm run build
 
