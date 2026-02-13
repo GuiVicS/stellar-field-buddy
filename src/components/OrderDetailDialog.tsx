@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
+import RichTextEditor from '@/components/RichTextEditor';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUpdateServiceOrder } from '@/hooks/useServiceOrders';
@@ -469,12 +470,16 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
           <Separator />
 
           {/* Editable text blocks */}
-          <EditableBlock
-            label="Descrição do Problema"
-            value={form.problem_description}
-            onChange={v => setForm(p => ({ ...p, problem_description: v }))}
-            placeholder="Descreva o problema relatado pelo cliente..."
-          />
+          <div className="group">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição do Problema</span>
+            <div className="mt-1">
+              <RichTextEditor
+                value={form.problem_description}
+                onChange={v => setForm(p => ({ ...p, problem_description: v }))}
+                placeholder="Descreva o problema relatado pelo cliente..."
+              />
+            </div>
+          </div>
 
           <EditableBlock
             label="Diagnóstico"

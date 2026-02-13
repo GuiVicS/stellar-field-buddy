@@ -5,7 +5,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import RichTextEditor from '@/components/RichTextEditor';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -54,7 +54,7 @@ const NewOrderDialog = ({ open, onOpenChange, defaultStatus }: NewOrderDialogPro
     setForm(prev => ({ ...prev, [field]: value }));
 
   const canSubmit =
-    form.customer_id && form.type && form.problem_description.trim().length > 0 && !createOrder.isPending;
+    form.customer_id && form.type && form.problem_description.replace(/<[^>]*>/g, '').trim().length > 0 && !createOrder.isPending;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -236,12 +236,10 @@ const NewOrderDialog = ({ open, onOpenChange, defaultStatus }: NewOrderDialogPro
             <Label className="text-sm font-medium">
               O que está acontecendo? <span className="text-destructive">*</span>
             </Label>
-            <Textarea
-              placeholder="Ex: Impressora travando papel na bandeja 2..."
+            <RichTextEditor
               value={form.problem_description}
-              onChange={e => update('problem_description', e.target.value)}
-              rows={3}
-              className="resize-none text-sm"
+              onChange={v => update('problem_description', v)}
+              placeholder="Ex: Impressora travando papel na bandeja 2... (cole imagens aqui)"
             />
           </div>
         </div>
