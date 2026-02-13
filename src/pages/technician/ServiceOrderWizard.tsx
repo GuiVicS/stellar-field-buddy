@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useServiceOrders, useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { useChecklist, useToggleChecklistItem } from '@/hooks/useChecklist';
@@ -22,6 +22,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import SignaturePad from '@/components/SignaturePad';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { X } from 'lucide-react';
 
 const steps = [
   { id: 1, label: 'Resumo', icon: FileText },
@@ -56,6 +58,7 @@ const ServiceOrderWizard = () => {
   const [sigDoc, setSigDoc] = useState('');
   const [sigImage, setSigImage] = useState<string | null>(null);
   const [savingSignature, setSavingSignature] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const { data: evidences = [] } = useQuery({
     queryKey: ['evidences', id],
@@ -205,6 +208,7 @@ const ServiceOrderWizard = () => {
   };
 
   return (
+    <>
     <div className="animate-fade-in">
       <div className="bg-muted px-5 pt-4 pb-5 text-foreground">
         <div className="flex items-center justify-between mb-3">
@@ -324,7 +328,16 @@ const ServiceOrderWizard = () => {
             </Card>
             <Card className="p-4 shadow-card border-border/50">
               <h3 className="text-sm font-semibold mb-2">Descrição do Problema</h3>
-              <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none overflow-x-auto break-words [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: os.problem_description || '' }} />
+              <div
+                className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none overflow-x-auto break-words [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md"
+                dangerouslySetInnerHTML={{ __html: os.problem_description || '' }}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.tagName === 'IMG') {
+                    setLightboxSrc((target as HTMLImageElement).src);
+                  }
+                }}
+              />
             </Card>
             {timeline.length > 0 && (
               <Card className="p-4 shadow-card border-border/50">
@@ -594,7 +607,28 @@ const ServiceOrderWizard = () => {
         </Button>
       </div>
     </div>
+
+    {/* Lightbox for inline images */}
+    <Dialog open={!!lightboxSrc} onOpenChange={(open) => { if (!open) setLightboxSrc(null); }}>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+        <button
+          onClick={() => setLightboxSrc(null)}
+          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        {lightboxSrc && (
+          <img
+            src={lightboxSrc}
+            alt="Imagem ampliada"
+            className="w-full h-full object-contain max-h-[90vh]"
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
+
 };
 
 export default ServiceOrderWizard;
