@@ -324,7 +324,7 @@ const ServiceOrderWizard = () => {
             </Card>
             <Card className="p-4 shadow-card border-border/50">
               <h3 className="text-sm font-semibold mb-2">Descrição do Problema</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{os.problem_description}</p>
+              <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: os.problem_description || '' }} />
             </Card>
             {timeline.length > 0 && (
               <Card className="p-4 shadow-card border-border/50">
