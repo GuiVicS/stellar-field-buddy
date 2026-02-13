@@ -24,16 +24,16 @@ const TechniciansPage = () => {
   const [deleting, setDeleting] = useState(false);
 
   const isLoading = loadingProfiles || loadingOrders;
-  const technicians = profiles.filter(p => p.active);
+  const technicians = profiles.filter((p) => p.active);
 
   const handleDelete = async () => {
     if (!deleteTech) return;
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ active: false })
-        .eq('id', deleteTech.id);
+      const { error } = await supabase.
+      from('profiles').
+      update({ active: false }).
+      eq('id', deleteTech.id);
       if (error) throw error;
       toast.success('Usuário desativado com sucesso');
       setDeleteTech(null);
@@ -51,28 +51,28 @@ const TechniciansPage = () => {
       <div className="p-4 lg:p-6 space-y-4">
         <Skeleton className="h-8 w-32" />
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-40" />)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40" />)}
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Técnicos</h1>
+        <h1 className="text-2xl font-bold">Usuários</h1>
         <CreateTechnicianDialog />
       </div>
-      {technicians.length === 0 && (
-        <Card className="p-8 text-center text-muted-foreground">
+      {technicians.length === 0 &&
+      <Card className="p-8 text-center text-muted-foreground">
           <p>Nenhum técnico cadastrado</p>
         </Card>
-      )}
+      }
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {technicians.map(tech => {
-          const techOrders = orders.filter(o => o.technician_id === tech.user_id);
-          const done = techOrders.filter(o => o.status === 'concluido').length;
-          const active = techOrders.some(o => ['em_deslocamento', 'em_atendimento'].includes(o.status));
+        {technicians.map((tech) => {
+          const techOrders = orders.filter((o) => o.technician_id === tech.user_id);
+          const done = techOrders.filter((o) => o.status === 'concluido').length;
+          const active = techOrders.some((o) => ['em_deslocamento', 'em_atendimento'].includes(o.status));
           return (
             <Card key={tech.id} className="p-5 shadow-card border-border/50 relative group">
               {/* Actions menu */}
@@ -101,8 +101,8 @@ const TechniciansPage = () => {
                   currentUrl={tech.avatar_url}
                   userId={tech.user_id}
                   name={tech.name}
-                  size="md"
-                />
+                  size="md" />
+
                 <div>
                   <div className="font-semibold">{tech.name}</div>
                   <div className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -125,8 +125,8 @@ const TechniciansPage = () => {
                   <div className="text-[10px] text-muted-foreground">Pendentes</div>
                 </div>
               </div>
-            </Card>
-          );
+            </Card>);
+
         })}
       </div>
 
@@ -134,8 +134,8 @@ const TechniciansPage = () => {
       <EditTechnicianDialog
         open={!!editTech}
         onOpenChange={(open) => !open && setEditTech(null)}
-        technician={editTech}
-      />
+        technician={editTech} />
+
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTech} onOpenChange={(open) => !open && setDeleteTech(null)}>
@@ -154,8 +154,8 @@ const TechniciansPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
+    </div>);
+
 };
 
 export default TechniciansPage;
