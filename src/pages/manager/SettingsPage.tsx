@@ -183,7 +183,7 @@ const SettingsPage = () => {
               onChange={(e) => update('evolution_instance', e.target.value)}
             />
           </div>
-          <div className="pt-2 flex gap-2">
+          <div className="pt-2 flex items-center gap-2">
             <Button
               variant="outline"
               onClick={handleGenerateQrCode}
@@ -194,13 +194,12 @@ const SettingsPage = () => {
               Gerar QR Code
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
+              size="sm"
               onClick={handleCheckStatus}
               disabled={statusLoading}
-              className="flex-1"
             >
-              {statusLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
-              Verificar Status
+              {statusLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
             </Button>
           </div>
           {connectionStatus && (
