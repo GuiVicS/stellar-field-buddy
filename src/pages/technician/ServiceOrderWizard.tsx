@@ -359,6 +359,7 @@ const ServiceOrderWizard = () => {
                 value={diagnosis}
                 onChange={(e) => setDiagnosis(e.target.value)}
                 className="min-h-[120px] text-sm"
+                disabled={isFinished}
               />
             </Card>
             <Card className="p-4 shadow-card border-border/50">
@@ -368,6 +369,7 @@ const ServiceOrderWizard = () => {
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}
                 className="min-h-[120px] text-sm"
+                disabled={isFinished}
               />
             </Card>
           </div>
@@ -388,9 +390,10 @@ const ServiceOrderWizard = () => {
                   <Checkbox
                     checked={item.checked || false}
                     onCheckedChange={() => {
-                      toggleItem.mutate({ id: item.id, checked: !item.checked });
+                      if (!isFinished) toggleItem.mutate({ id: item.id, checked: !item.checked });
                     }}
                     className="mt-0.5"
+                    disabled={isFinished}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -426,7 +429,7 @@ const ServiceOrderWizard = () => {
               variant="outline"
               className="w-full h-12 border-dashed"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || isFinished}
             >
               {uploading ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</>
@@ -452,12 +455,14 @@ const ServiceOrderWizard = () => {
                       {ev.kind === 'audio' ? '🎵 Áudio' : '📎 Arquivo'}
                     </div>
                   )}
-                  <button
-                    onClick={() => handleDeleteEvidence(ev.id)}
-                    className="absolute top-1 right-1 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  {!isFinished && (
+                    <button
+                      onClick={() => handleDeleteEvidence(ev.id)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -475,6 +480,7 @@ const ServiceOrderWizard = () => {
                 value={partName}
                 onChange={e => setPartName(e.target.value)}
                 className="h-10 text-sm"
+                disabled={isFinished}
               />
               <Input
                 placeholder="Custo (R$)"
@@ -483,10 +489,11 @@ const ServiceOrderWizard = () => {
                 type="text"
                 inputMode="decimal"
                 className="h-10 text-sm"
+                disabled={isFinished}
               />
               <Button
                 onClick={handleAddPart}
-                disabled={!partName.trim()}
+                disabled={!partName.trim() || isFinished}
                 className="w-full h-10"
                 size="sm"
               >
@@ -510,12 +517,14 @@ const ServiceOrderWizard = () => {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => handleDeletePart(p.id)}
-                  className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {!isFinished && (
+                  <button
+                    onClick={() => handleDeletePart(p.id)}
+                    className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </Card>
             ))}
           </div>

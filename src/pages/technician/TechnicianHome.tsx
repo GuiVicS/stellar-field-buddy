@@ -91,7 +91,7 @@ const TechnicianHome = () => {
           const time = new Date(os.scheduled_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           const isUrgent = os.priority === 'urgente';
           const idx = STATUS_FLOW.indexOf(os.status as OSStatus);
-          const prev = idx > 0 ? STATUS_FLOW[idx - 1] : null;
+          const prev = null; // Técnico não pode retroceder status de OS concluída
           const next = idx >= 0 && idx < STATUS_FLOW.length - 1 ? STATUS_FLOW[idx + 1] : null;
 
           return (
