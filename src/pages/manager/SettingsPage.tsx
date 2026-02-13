@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Save, MessageSquare, Mail, QrCode } from 'lucide-react';
+import { Loader2, Save, MessageSquare, Mail, QrCode, Wifi, WifiOff } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const SETTINGS_KEYS = [
@@ -26,6 +27,8 @@ const SettingsPage = () => {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrData, setQrData] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -95,6 +98,38 @@ const SettingsPage = () => {
     }
   };
 
+  const handleCheckStatus = async () => {
+    const url = settings.evolution_api_url;
+    const key = settings.evolution_api_key;
+    const instance = settings.evolution_instance;
+
+    if (!url || !key || !instance) {
+      toast({ title: 'Preencha URL, API Key e Instância antes de verificar.', variant: 'destructive' });
+      return;
+    }
+
+    setStatusLoading(true);
+    try {
+      const res = await fetch(`${url.replace(/\/$/, '')}/instance/connectionState/${instance}`, {
+        method: 'GET',
+        headers: { apikey: key },
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`Erro ${res.status}: ${errBody}`);
+      }
+      const data = await res.json();
+      const state = data?.instance?.state || data?.state || 'unknown';
+      setConnectionStatus(state);
+      toast({ title: state === 'open' ? 'Instância conectada!' : `Status: ${state}` });
+    } catch (e: any) {
+      setConnectionStatus('error');
+      toast({ title: 'Erro ao verificar status', description: e.message, variant: 'destructive' });
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -148,17 +183,37 @@ const SettingsPage = () => {
               onChange={(e) => update('evolution_instance', e.target.value)}
             />
           </div>
-          <div className="pt-2">
+          <div className="pt-2 flex gap-2">
             <Button
               variant="outline"
               onClick={handleGenerateQrCode}
               disabled={qrLoading}
-              className="w-full"
+              className="flex-1"
             >
               {qrLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <QrCode className="w-4 h-4 mr-2" />}
               Gerar QR Code
             </Button>
+            <Button
+              variant="outline"
+              onClick={handleCheckStatus}
+              disabled={statusLoading}
+              className="flex-1"
+            >
+              {statusLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
+              Verificar Status
+            </Button>
           </div>
+          {connectionStatus && (
+            <div className="pt-2 flex items-center gap-2">
+              {connectionStatus === 'open' ? (
+                <Badge className="bg-green-600 text-white"><Wifi className="w-3 h-3 mr-1" /> Conectado</Badge>
+              ) : connectionStatus === 'error' ? (
+                <Badge variant="destructive"><WifiOff className="w-3 h-3 mr-1" /> Erro</Badge>
+              ) : (
+                <Badge variant="secondary"><WifiOff className="w-3 h-3 mr-1" /> {connectionStatus}</Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
