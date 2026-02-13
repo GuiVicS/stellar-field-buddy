@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Save, MessageSquare, Mail } from 'lucide-react';
+import { Loader2, Save, MessageSquare, Mail, QrCode } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const SETTINGS_KEYS = [
   'evolution_api_url',
@@ -22,6 +23,9 @@ const SettingsPage = () => {
   const [settings, setSettings] = useState<SettingsMap>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -56,6 +60,38 @@ const SettingsPage = () => {
       toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerateQrCode = async () => {
+    const url = settings.evolution_api_url;
+    const key = settings.evolution_api_key;
+    const instance = settings.evolution_instance;
+
+    if (!url || !key || !instance) {
+      toast({ title: 'Preencha URL, API Key e Instância antes de gerar o QR Code.', variant: 'destructive' });
+      return;
+    }
+
+    setQrLoading(true);
+    try {
+      const res = await fetch(`${url.replace(/\/$/, '')}/instance/connect/${instance}`, {
+        method: 'GET',
+        headers: { apikey: key },
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`Erro ${res.status}: ${errBody}`);
+      }
+      const data = await res.json();
+      const base64 = data?.base64;
+      if (!base64) throw new Error('QR Code não retornado pela API.');
+      setQrData(base64);
+      setQrDialogOpen(true);
+    } catch (e: any) {
+      toast({ title: 'Erro ao gerar QR Code', description: e.message, variant: 'destructive' });
+    } finally {
+      setQrLoading(false);
     }
   };
 
@@ -112,10 +148,39 @@ const SettingsPage = () => {
               onChange={(e) => update('evolution_instance', e.target.value)}
             />
           </div>
+          <div className="pt-2">
+            <Button
+              variant="outline"
+              onClick={handleGenerateQrCode}
+              disabled={qrLoading}
+              className="w-full"
+            >
+              {qrLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <QrCode className="w-4 h-4 mr-2" />}
+              Gerar QR Code
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Canais de Feedback */}
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              QR Code WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {qrData && (
+              <img src={qrData} alt="QR Code" className="w-64 h-64 rounded-lg border" />
+            )}
+            <p className="text-xs text-muted-foreground text-center">
+              Escaneie o QR Code com o WhatsApp para conectar a instância.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
