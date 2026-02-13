@@ -118,7 +118,7 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
           'rounded-md border border-input bg-background cursor-pointer hover:border-ring transition-colors',
           className
         )}
-        onClick={() => setFullscreen(true)}
+        onClick={(e) => { e.stopPropagation(); setFullscreen(true); }}
       >
         {plainPreview || hasImages ? (
           <div className="px-3 py-2 text-sm text-foreground">
@@ -138,8 +138,8 @@ const RichTextEditor = ({ value, onChange, placeholder, className }: RichTextEdi
       </div>
 
       {/* Fullscreen editor */}
-      <Dialog open={fullscreen} onOpenChange={(open) => { if (!open) setFullscreen(false); }}>
-        <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] p-0 rounded-none border-none [&>button]:hidden">
+      <Dialog open={fullscreen} onOpenChange={(open) => { if (!open) setFullscreen(false); }} modal>
+        <DialogContent className="max-w-[100vw] w-[100vw] h-[100vh] max-h-[100vh] p-0 rounded-none border-none z-[200] [&>button]:hidden">
           <div className="flex flex-col h-full bg-background">
             <div className="flex items-center justify-between px-4 py-2 border-b border-border">
               <h3 className="text-sm font-semibold">Editor de Texto</h3>
