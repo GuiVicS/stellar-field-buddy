@@ -24,6 +24,7 @@ import { useUpdateServiceOrder } from '@/hooks/useServiceOrders';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useCustomers, useCustomerAddresses, useMachines } from '@/hooks/useCustomers';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeError } from '@/lib/sanitizeError';
 
 interface OrderDetailDialogProps {
   open: boolean;
@@ -166,7 +167,18 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
         .select('*')
         .eq('os_id', order.id)
         .order('created_at', { ascending: false });
-      return data || [];
+      if (!data || data.length === 0) return [];
+      // Resolve signed URLs for private bucket
+      const withUrls = await Promise.all(
+        data.map(async (ev) => {
+          const path = ev.file_url.startsWith('http')
+            ? ev.file_url.split('/evidences/').pop() || ev.file_url
+            : ev.file_url;
+          const { data: signed } = await supabase.storage.from('evidences').createSignedUrl(decodeURIComponent(path), 14400);
+          return { ...ev, file_url: signed?.signedUrl || ev.file_url };
+        })
+      );
+      return withUrls;
     },
     enabled: !!order?.id && open,
   });
@@ -196,7 +208,7 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
         setSaving(false);
       },
       onError: (err) => {
-        toast({ title: 'Erro ao salvar', description: String(err), variant: 'destructive' });
+        toast({ title: 'Erro ao salvar', description: sanitizeError(err), variant: 'destructive' });
         setSaving(false);
       },
     });
@@ -216,14 +228,15 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
           .upload(path, file);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
+        const { data: signedData, error: signError } = await supabase.storage
           .from('evidences')
-          .getPublicUrl(path);
+          .createSignedUrl(path, 14400); // 4 hours
+        if (signError) throw signError;
 
         await supabase.from('evidences').insert({
           os_id: order.id,
           kind,
-          file_url: urlData.publicUrl,
+          file_url: path,
           created_by: user?.user_id || null,
         });
       }
@@ -231,7 +244,7 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
       qc.invalidateQueries({ queryKey: ['evidences', order.id] });
       toast({ title: `📎 ${files.length} arquivo(s) anexado(s)!` });
     } catch (e: any) {
-      toast({ title: 'Erro ao enviar', description: e.message, variant: 'destructive' });
+      toast({ title: 'Erro ao enviar', description: sanitizeError(e), variant: 'destructive' });
     } finally {
       setUploading(false);
     }
@@ -249,7 +262,7 @@ const OrderDetailDialog = ({ open, onOpenChange, order }: OrderDetailDialogProps
       qc.invalidateQueries({ queryKey: ['evidences', order?.id] });
       toast({ title: 'Arquivo removido' });
     } catch (e: any) {
-      toast({ title: 'Erro ao remover', description: e.message, variant: 'destructive' });
+      toast({ title: 'Erro ao remover', description: sanitizeError(e), variant: 'destructive' });
     }
   };
 
