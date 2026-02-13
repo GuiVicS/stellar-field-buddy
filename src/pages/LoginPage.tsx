@@ -67,7 +67,11 @@ const LoginPage = () => {
     setLoading(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      const msg = signUpError.message;
+      if (msg.includes('already registered')) setError('Este e-mail já está cadastrado.');
+      else if (msg.includes('valid email')) setError('Informe um e-mail válido.');
+      else if (msg.includes('password')) setError('A senha não atende aos requisitos mínimos.');
+      else setError('Erro ao criar conta. Tente novamente.');
       return;
     }
 

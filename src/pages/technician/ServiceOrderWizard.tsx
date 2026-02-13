@@ -63,7 +63,17 @@ const ServiceOrderWizard = () => {
       if (!id) return [];
       const { data, error } = await supabase.from('evidences').select('*').eq('os_id', id).order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      if (!data || data.length === 0) return [];
+      const withUrls = await Promise.all(
+        data.map(async (ev) => {
+          const path = ev.file_url.startsWith('http')
+            ? ev.file_url.split('/evidences/').pop() || ev.file_url
+            : ev.file_url;
+          const { data: signed } = await supabase.storage.from('evidences').createSignedUrl(decodeURIComponent(path), 14400);
+          return { ...ev, file_url: signed?.signedUrl || ev.file_url };
+        })
+      );
+      return withUrls;
     },
     enabled: !!id,
   });
@@ -146,11 +156,11 @@ const ServiceOrderWizard = () => {
         const path = `${id}/${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('evidences').upload(path, file);
         if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('evidences').getPublicUrl(path);
+        const { data: urlData } = await supabase.storage.from('evidences').createSignedUrl(path, 14400);
         const kind = file.type.startsWith('image/') ? 'photo' : file.type.startsWith('audio/') ? 'audio' : 'file';
         const { error: insertError } = await supabase.from('evidences').insert({
           os_id: id,
-          file_url: urlData.publicUrl,
+          file_url: path,
           kind,
           created_by: user?.user_id || null,
         });

@@ -48,7 +48,10 @@ const CreateTechnicianDialog = () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
       queryClient.invalidateQueries({ queryKey: ['technicians'] });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao criar usuário');
+      const msg = err?.message || '';
+      if (msg.includes('already registered')) toast.error('Este e-mail já está cadastrado.');
+      else if (msg.includes('password')) toast.error('Senha não atende aos requisitos.');
+      else toast.error('Erro ao criar usuário. Tente novamente.');
     } finally {
       setLoading(false);
     }
