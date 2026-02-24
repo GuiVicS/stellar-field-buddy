@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import AvatarUpload from '@/components/AvatarUpload';
 import CreateTechnicianDialog from '@/components/CreateTechnicianDialog';
 import EditTechnicianDialog from '@/components/EditTechnicianDialog';
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -61,7 +61,27 @@ const TechniciansPage = () => {
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Usuários</h1>
-        <CreateTechnicianDialog />
+        <div className="flex gap-2">
+          <Button variant="outline" disabled={technicians.length === 0} className="gap-1.5" onClick={() => {
+            const rows = technicians.map(t => ({
+              Nome: t.name,
+              Email: t.email,
+              Telefone: t.phone || '',
+            }));
+            const headers = Object.keys(rows[0] || {});
+            const csv = [headers.join(';'), ...rows.map(r => headers.map(h => `"${(r as any)[h] || ''}"`).join(';'))].join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `usuarios_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <Download className="w-4 h-4" /> Exportar
+          </Button>
+          <CreateTechnicianDialog />
+        </div>
       </div>
       {technicians.length === 0 &&
       <Card className="p-8 text-center text-muted-foreground">
