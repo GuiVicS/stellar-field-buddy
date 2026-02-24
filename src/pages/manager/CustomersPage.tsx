@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   Plus, Search, Building2, Phone, Mail, MapPin, Cpu,
-  ChevronRight, User, Upload,
+  ChevronRight, User, Upload, Download,
 } from 'lucide-react';
 import ImportCustomersDialog from '@/components/ImportCustomersDialog';
 import { cn } from '@/lib/utils';
@@ -311,6 +311,26 @@ const CustomersPage = () => {
           <p className="text-sm text-muted-foreground">{filtered.length} cliente{filtered.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => {
+            const rows = filtered.map(c => ({
+              Nome: c.name,
+              'CPF/CNPJ': c.cpf_cnpj || '',
+              Contato: c.main_contact_name || '',
+              Telefone: c.phone || '',
+              Email: c.email || '',
+            }));
+            const headers = Object.keys(rows[0] || {});
+            const csv = [headers.join(';'), ...rows.map(r => headers.map(h => `"${(r as any)[h] || ''}"`).join(';'))].join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `clientes_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }} disabled={filtered.length === 0} className="gap-1.5">
+            <Download className="w-4 h-4" /> Exportar
+          </Button>
           <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
             <Upload className="w-4 h-4" /> Importar
           </Button>
